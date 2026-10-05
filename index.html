@@ -71,8 +71,15 @@
   /* ===== 地図 ===== */
   .map-wrap { flex: 1; min-height: 300px; position: relative; }
   #map { position: absolute; inset: 0; background: var(--track); }
-  .walker-icon { width: 56px; height: 82px; transition: transform 0.2s; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3)); }
-  .walker-icon img { width: 100%; height: 100%; display: block; }
+  .walker-icon { width: 46px; height: 67px; transition: transform 0.2s; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3)); }
+  .walker-icon img { width: 100%; height: 100%; display: block; transform-origin: 50% 100%; animation: step 0.5s ease-in-out infinite; }
+  /* 一歩ごとに、ぴょこっと上がって左右に少しかたむく */
+  @keyframes step {
+    0%, 50%, 100% { transform: translateY(0) rotate(0deg); }
+    25% { transform: translateY(-5px) rotate(-6deg); }
+    75% { transform: translateY(-5px) rotate(6deg); }
+  }
+  @media (prefers-reduced-motion: reduce) { .walker-icon img { animation: none; } }
   .walker-icon.west { transform: scaleX(-1); }   /* 西（左）に進むときは左を向く */
   .here-dot {
     width: 16px; height: 16px; border-radius: 50%;
@@ -391,7 +398,7 @@
 
   let dayLayer = L.layerGroup().addTo(map);   // 表示中の日の線
   let liveLine = null;                        // 記録中の線
-  const walkerIcon = L.divIcon({ className: '', html: '<div class="walker-icon" id="walkerEl"><img src="walker.png" alt="歩く人"></div>', iconSize: [56, 82], iconAnchor: [28, 80] });
+  const walkerIcon = L.divIcon({ className: '', html: '<div class="walker-icon" id="walkerEl"><img src="walker.png" alt="歩く人"></div>', iconSize: [46, 67], iconAnchor: [23, 65] });
   let walker = null;                          // 歩く人のマーカー
   const hereIcon = L.divIcon({ className: '', html: '<div class="here-dot"></div>', iconSize: [16, 16], iconAnchor: [8, 8] });
   let hereMarker = null;
@@ -668,9 +675,9 @@
       cum.push(cum[i - 1] + (breaks.has(i) ? 0 : distanceM(points[i - 1], points[i])));
     }
     const meters = cum[total - 1];
-    // 一定の速さで進む。長い道でも 8〜40秒 におさまるように速さを決める
+    // 一定の速さで進む。長い道でも 10〜48秒 におさまるように速さを決める
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const durationMs = reduce || meters === 0 ? 0 : Math.min(40000, Math.max(8000, meters / 40 * 1000));
+    const durationMs = reduce || meters === 0 ? 0 : Math.min(48000, Math.max(10000, meters / 33 * 1000));
     const start = performance.now();
     let drawn = 1;     // 線に入れ終わった点の数
     let hasTip = false; // 線の先っぽ（点と点の途中）を入れているか
