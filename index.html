@@ -252,6 +252,7 @@
   const STRIDE_M = 0.7;          // 1歩の長さ（メートル）。歩数はこれで距離から計算した「めやす」
   const MIN_MOVE_M = 4;          // これより小さい動きはGPSのブレとして無視
   const MAX_ACCURACY_M = 40;     // 位置の精度がこれより悪いときは使わない
+  const MAX_WALK_SPEED = 3.0;    // 秒速3m（時速約11km）より速い移動は、電車や車として数えない
   const SAVE_KEY = 'aruku-data';
 
   // ===== 歩いた分だけ育つ世界 =====
@@ -287,7 +288,8 @@
   ];
 
   // ===== 保存データ =====
-  // walks: [{ id, start, end, points: [[緯度, 経度, 時刻], ...], distance }]
+  // walks: [{ id, start, end, points: [[緯度, 経度, 時刻, 乗り物?], ...], distance }]
+  // 4つ目が 1 の点は「乗り物で移動してきた点」。その前の点とは線をつながず、距離にも入れない
   let walks = [];
   let current = null;            // 記録中の散歩（記録していないときはnull）
 
@@ -297,11 +299,11 @@
   function load() {
     try {
       const data = JSON.parse(localStorage.getItem(SAVE_KEY) || '{}');
-      walks = data.walks || [];
+      walks = (data.walks || []).map(cleanWalk);
       // アプリが途中で閉じられた散歩は、そこまでの分を保存しておく
       if (data.current && data.current.points.length > 1) {
         data.current.end = data.current.points[data.current.points.length - 1][2];
-        walks.push(data.current);
+        walks.push(cleanWalk(data.current));
       }
     } catch (e) {}
   }
@@ -338,6 +340,42 @@
     const dLng = toRad(b[1] - a[1]);
     const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a[0])) * Math.cos(toRad(b[0])) * Math.sin(dLng / 2) ** 2;
     return 2 * R * Math.asin(Math.sqrt(h));
+  }
+
+  // ===== 乗り物の区間を取り除く =====
+  // 保存してある散歩を見直して、速すぎる区間（電車・車）を距離から外す
+  function cleanWalk(w) {
+    let meters = 0;
+    for (let i = 1; i < w.points.length; i++) {
+      const a = w.points[i - 1], b = w.points[i];
+      const d = distanceM(a, b);
+      const sec = (b[2] - a[2]) / 1000;
+      if (!b[3] && sec >= 2 && d / sec > MAX_WALK_SPEED) b[3] = 1;
+      if (!b[3]) meters += d;
+    }
+    w.distance = meters;
+    return w;
+  }
+
+  // 歩いていた時間（乗り物の区間は入れない）
+  function walkingMs(w) {
+    let ms = 0;
+    for (let i = 1; i < w.points.length; i++) {
+      if (!w.points[i][3]) ms += w.points[i][2] - w.points[i - 1][2];
+    }
+    return ms;
+  }
+
+  // 乗り物の区間で線を切って、線のかたまりのリストにする
+  function segmentsOf(w) {
+    const segs = [];
+    let seg = [];
+    for (const p of w.points) {
+      if (p[3] && seg.length) { segs.push(seg); seg = []; }
+      seg.push([p[0], p[1]]);
+    }
+    if (seg.length) segs.push(seg);
+    return segs.filter((x) => x.length > 1);
   }
 
   // ===== 地図 =====
@@ -380,7 +418,7 @@
 
     // 数字
     const meters = all.reduce((s, w) => s + w.distance, 0);
-    const minutes = all.reduce((s, w) => s + ((w.end || Date.now()) - w.start), 0) / 60000;
+    const minutes = all.reduce((s, w) => s + walkingMs(w), 0) / 60000;
     const steps = Math.round(meters / STRIDE_M);
     document.getElementById('dayTitle').textContent = dayTitle(viewDay);
     document.getElementById('statSteps').textContent = steps.toLocaleString();
@@ -407,9 +445,9 @@
     dayLayer.clearLayers();
     const bounds = [];
     for (const w of list) {
-      const latlngs = w.points.map((p) => [p[0], p[1]]);
-      L.polyline(latlngs, { color: pathColor(), weight: 6, opacity: 0.85, lineCap: 'round' }).addTo(dayLayer);
-      bounds.push(...latlngs);
+      const segs = segmentsOf(w);
+      if (segs.length) L.polyline(segs, { color: pathColor(), weight: 6, opacity: 0.85, lineCap: 'round' }).addTo(dayLayer);
+      segs.forEach((seg) => bounds.push(...seg));
     }
     if (bounds.length > 1 && !current) map.fitBounds(bounds, { paddingTopLeft: [40, 80], paddingBottomRight: [40, 50] });
     if (!list.length && !current) {
@@ -513,13 +551,23 @@
     if (last) {
       const d = distanceM(last, point);
       if (d < MIN_MOVE_M) return; // ほとんど動いていない
-      current.distance += d;
+      // 速さ（秒速何m）。スマホが教えてくれる速さがあればそれを使う
+      const sec = (point[2] - last[2]) / 1000;
+      // 2秒以上あいていれば、距離と時間からも速さを計算して、速いほうを使う
+      const reported = pos.coords.speed || 0;
+      const speed = Math.max(reported, sec >= 2 ? d / sec : 0);
+      if (speed > MAX_WALK_SPEED) {
+        point.push(1); // 乗り物で移動中：線をつながず、歩数にも入れない
+      } else {
+        current.distance += d;
+      }
     }
     current.points.push(point);
-    liveLine.addLatLng([latitude, longitude]);
+    liveLine.setLatLngs(segmentsOf(current));
     map.panTo([latitude, longitude]);
     save();
     renderDay();
+    if (point[3]) showNote('🚃 乗り物で移動中のようです。この間は歩数に入れません');
   }
 
   function onPositionError(err) {
@@ -590,20 +638,24 @@
     stopReplay();
     renderDay();
     const points = list.flatMap((w) => w.points.map((p) => [p[0], p[1]]));
-    playRoute(points, list.map((w) => w.points.length));
+    // 線を切る場所：散歩と散歩の間、乗り物で移動した点
+    const breaks = new Set();
+    let index = 0;
+    for (const w of list) {
+      w.points.forEach((p, i) => { if (i === 0 || p[3]) breaks.add(index + i); });
+      index += w.points.length;
+    }
+    playRoute(points, breaks);
   }
 
   // points を順番にたどって、線を伸ばしながら人を動かす
-  function playRoute(points, segmentLengths) {
+  function playRoute(points, breaks) {
     dayLayer.eachLayer((layer) => layer.setStyle && layer.setStyle({ color: oldColor(), opacity: 0.35 }));
     map.fitBounds(points, { paddingTopLeft: [40, 80], paddingBottomRight: [40, 50] });
     let line = L.polyline([points[0]], { color: pathColor(), weight: 6, lineCap: 'round' }).addTo(dayLayer);
     walker = L.marker(points[0], { icon: walkerIcon, zIndexOffset: 1000 }).addTo(dayLayer);
 
-    // 散歩の切れ目（別の散歩）では線をつなげない
-    const breaks = new Set();
-    let sum = 0;
-    for (const n of segmentLengths) { sum += n; breaks.add(sum); }
+    // breaks に入っている番号の点では、前の点と線をつなげない
 
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const total = points.length;
