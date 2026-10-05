@@ -228,6 +228,70 @@
   .goal-fill { height: 100%; width: 0; background: var(--path); border-radius: 999px; transition: width 0.5s; }
   .goal-text { margin: -6px 0 0; font-size: 0.85rem; color: var(--ink-soft); text-align: center; font-variant-numeric: tabular-nums; }
 
+  /* ===== 次の成長まで ===== */
+  .growth {
+    border: 2px solid var(--track); border-radius: 18px; padding: 12px 14px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .growth.near { border-color: var(--go); }
+  .growth-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .growth-head span { font-size: 0.95rem; font-weight: 700; }
+  .growth-head strong { font-size: 1.25rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .growth-bar { height: 14px; background: var(--track); border-radius: 999px; overflow: hidden; }
+  .growth-fill { height: 100%; width: 0; background: var(--go); border-radius: 999px; transition: width 0.6s; }
+  .growth.just .growth-fill { animation: growth-glow 1.2s ease-in-out 3; }
+  @keyframes growth-glow { 50% { filter: brightness(1.5); } }
+  .growth-nudge { margin: 0; font-size: 0.88rem; font-weight: 700; color: var(--go); }
+  .growth-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .growth-foot span { font-size: 0.85rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  .text-button {
+    border: none; background: transparent; color: var(--ink); padding: 6px 0 6px 8px;
+    font-family: var(--font); font-weight: 700; font-size: 0.92rem; cursor: pointer; white-space: nowrap;
+  }
+  .text-button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 6px; }
+  /* 歩いている途中で育ったときの、小さなお知らせ */
+  .growth-toast {
+    position: absolute; z-index: 800; top: 64px; left: 50%; translate: -50% 0; width: max-content; max-width: calc(100% - 32px);
+    background: var(--card); color: var(--ink); border: 3px solid var(--go); border-radius: 18px;
+    padding: 12px 18px; font-weight: 700; font-size: 1.05rem; text-align: center;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2); pointer-events: none;
+    animation: toast-in 4.2s ease forwards;
+  }
+  .growth-toast small { display: block; font-size: 0.8rem; color: var(--ink-soft); font-weight: 500; margin-top: 2px; }
+  @keyframes toast-in {
+    0% { opacity: 0; transform: translateY(-14px) scale(0.7); }
+    10% { opacity: 1; transform: translateY(0) scale(1.08); }
+    16% { transform: scale(1); }
+    85% { opacity: 1; }
+    100% { opacity: 0; transform: translateY(-8px); }
+  }
+  /* ===== 成長の記録 ===== */
+  .record-page {
+    position: fixed; inset: 0; z-index: 2000; background: var(--page); overflow-y: auto;
+    padding: 0 16px calc(24px + env(safe-area-inset-bottom, 0px));
+  }
+  .record-inner { max-width: 560px; margin: 0 auto; }
+  .record-top {
+    position: sticky; top: 0; background: var(--page); display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 0 10px; z-index: 1;
+  }
+  .record-top h2 { margin: 0; font-size: 1.3rem; }
+  .record-lead { margin: 0 0 14px; font-size: 0.88rem; color: var(--ink-soft); line-height: 1.6; }
+  .record-list { list-style: none; margin: 0; padding: 0; position: relative; }
+  .record-list::before { content: ""; position: absolute; left: 21px; top: 10px; bottom: 10px; width: 3px; background: var(--track); border-radius: 2px; }
+  .record-list li { display: grid; grid-template-columns: 44px 1fr; gap: 10px; align-items: center; padding: 7px 0; position: relative; }
+  .record-icon {
+    width: 44px; height: 44px; border-radius: 50%; background: var(--card); border: 2px solid var(--track);
+    display: grid; place-items: center; font-size: 1.4rem;
+  }
+  .record-list li.form .record-icon { border-color: #d4a72c; }
+  .record-list li.form .record-icon img { width: 34px; height: 34px; object-fit: contain; }
+  .record-body { background: var(--card); border-radius: 14px; padding: 9px 12px; display: flex; flex-direction: column; gap: 1px; }
+  .record-date { font-size: 0.8rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  .record-text { font-weight: 700; }
+  .record-list li.next .record-icon { border-style: dashed; color: var(--ink-soft); }
+  .record-list li.next .record-body { background: transparent; border: 2px dashed var(--track); }
+  .record-list li.next .record-text { color: var(--ink-soft); }
   .main-button {
     padding: 18px; border: none; border-radius: 20px;
     font-family: var(--font); font-weight: 700; font-size: 1.3rem;
@@ -256,7 +320,7 @@
   .live { margin: 0; text-align: center; font-weight: 700; color: var(--stop); }
   .live::before { content: "● "; animation: blink 1.2s infinite; }
   @keyframes blink { 50% { opacity: 0.2; } }
-  @media (prefers-reduced-motion: reduce) { .live::before { animation: none; } .goal-fill { transition: none; } }
+  @media (prefers-reduced-motion: reduce) { .live::before { animation: none; } .goal-fill, .growth-fill { transition: none; } .growth.just .growth-fill, .growth-toast { animation: none; } }
 </style>
 </head>
 <body>
@@ -295,6 +359,13 @@
     <div class="goal-bar"><div class="goal-fill" id="goalFill"></div></div>
     <p class="goal-text" id="goalText">目標 5,000 歩まで あと 5,000 歩</p>
 
+    <div class="growth" id="growth">
+      <div class="growth-head"><span id="growthLabel">🌱 次の成長まで</span><strong id="growthLeft">あと 5,000 歩</strong></div>
+      <div class="growth-bar" role="progressbar" aria-label="次の成長まで" aria-valuemin="0" id="growthBar"><div class="growth-fill" id="growthFill"></div></div>
+      <p class="growth-nudge" id="growthNudge" hidden></p>
+      <div class="growth-foot"><span id="growthSub">0 / 5,000 歩</span><button class="text-button" id="recordButton" type="button">📖 成長の記録 ›</button></div>
+    </div>
+
     <p class="live" id="liveText" hidden>記録中</p>
     <button class="main-button" id="mainButton" type="button">🚶 歩きはじめる</button>
     <div class="sub-row">
@@ -304,6 +375,14 @@
     <p class="hint" id="hint">歩いている間は、このページを開いたまま画面をつけておくのがいちばん確実です。ほかのアプリを使って記録が止まっても、このページに戻れば続きから記録します。</p>
   </section>
 </div>
+
+<section class="record-page" id="recordPage" aria-label="成長の記録" hidden>
+  <div class="record-inner">
+    <div class="record-top"><h2>📖 成長の記録</h2><button class="round" id="recordClose" type="button" aria-label="とじる">✕</button></div>
+    <p class="record-lead">あなたが歩いた結果、世界がどう変わってきたかの記録です。</p>
+    <ol class="record-list" id="recordList"></ol>
+  </div>
+</section>
 
 <script>
   // ===== 設定 =====
@@ -341,6 +420,31 @@
     { level: 19, picture: true, name: 'イルカのジャンプ',       requiredSteps: 1450000 },
     { level: 20, picture: true, name: 'ふしぎな塔の世界',       requiredSteps: 1600000 },
   ];
+  // 成長したときの記録とお知らせ：[絵文字, 成長の記録に書くこと, 歩いている途中に出すお知らせ]
+  const GROWTH = {
+    2:  ['🌱', '芽が出た',               '新しい芽が生まれました！'],
+    3:  ['🌿', '植物が育った',           '植物が ぐんと育ちました！'],
+    4:  ['🌼', '花が咲きはじめた',       '花が咲きはじめました！'],
+    5:  ['🌳', '小さな木になった',       '小さな木になりました！'],
+    6:  ['🦋', '蝶や鳥がやって来た',     '蝶や鳥がやって来ました！'],
+    7:  ['🌳', '大きな木になった',       '大きな木になりました！'],
+    8:  ['🐇', '動物が住みはじめた',     '動物が住みはじめました！'],
+    9:  ['🌲', '小さな森になった',       '小さな森になりました！'],
+    10: ['🌸', '花いっぱいの森になった', '森が花でいっぱいになりました！'],
+    11: ['✨', '新しい世界が見えた（キノコの丘）', '森のむこうに 新しい世界が見えました！'],
+    12: ['🐱', 'ネコとヘルメットの子が見えた', 'ネコとヘルメットの子が見えました！'],
+    13: ['🐌', 'カタツムリがやって来た', 'カタツムリがやって来ました！'],
+    14: ['🍎', 'くだものの島が見えた',   'くだものの島が見えました！'],
+    15: ['🌺', '空飛ぶネコと花が見えた', '空飛ぶネコと花が見えました！'],
+    16: ['🦋', 'ちょうちょが舞った',     'ちょうちょが舞いはじめました！'],
+    17: ['⛵', '船とワニが見えた',       '船とワニが見えました！'],
+    18: ['🐬', 'イルカが顔を出した',     'イルカが顔を出しました！'],
+    19: ['🐬', 'イルカがジャンプした',   'イルカがジャンプしました！'],
+    20: ['🗼', 'ふしぎな塔の世界が全部見えた', 'ふしぎな塔の世界が 全部見えました！'],
+  };
+  const NEAR_STEPS = 2000;       // 次の成長まで これより少なければ「あと少し！」と出す
+  const STEPS_PER_MIN = 100;     // 1分で歩くおよその歩数（あと何分かの めやす）
+
   // level: この段階から現れる　x/y: 位置（%）　size: 大きさ（px）　move: 動き方
   const DECORATIONS = [
     { level: 4,  emoji: '🌼', x: 14, y: 14, size: 34, move: 'sway' },
@@ -576,6 +680,8 @@
       ? '🎉 目標 ' + DAILY_GOAL_STEPS.toLocaleString() + ' 歩を達成！'
       : '目標 ' + DAILY_GOAL_STEPS.toLocaleString() + ' 歩まで あと ' + (DAILY_GOAL_STEPS - steps).toLocaleString() + ' 歩';
 
+    renderGrowth();
+
     // 一覧
     document.getElementById('walkList').innerHTML = list.map((w, i) =>
       '<li tabindex="0" role="button" data-index="' + i + '" aria-label="この散歩を再生"><span>▶ ' + clock(w.start) + ' 〜 ' + clock(w.end) + '</span><span>' +
@@ -613,6 +719,133 @@
     let stage = STAGES[0];
     for (const s of STAGES) if (steps >= s.requiredSteps) stage = s;
     return stage;
+  }
+
+  // ===== 次の成長まで あと何歩 =====
+  let growthLevel = 0; // いま表示している段階（歩いている途中で育ったかを見るため）
+  function renderGrowth() {
+    const steps = totalSteps();
+    const stage = getStage(steps);
+    const next = STAGES.find((s) => s.level === stage.level + 1);
+    const card = document.getElementById('growth');
+    const bar = document.getElementById('growthBar');
+    const nudge = document.getElementById('growthNudge');
+    if (!next) {
+      document.getElementById('growthLabel').textContent = '🎉 成長の森';
+      document.getElementById('growthLeft').textContent = '最高の段階です';
+      document.getElementById('growthFill').style.width = '100%';
+      document.getElementById('growthSub').textContent = 'これまで ' + steps.toLocaleString() + ' 歩';
+      nudge.hidden = true;
+      card.classList.remove('near');
+    } else {
+      const span = next.requiredSteps - stage.requiredSteps;
+      const done = steps - stage.requiredSteps;
+      const left = next.requiredSteps - steps;
+      document.getElementById('growthLabel').textContent = GROWTH[next.level][0] + ' 次の成長まで';
+      document.getElementById('growthLeft').textContent = 'あと ' + left.toLocaleString() + ' 歩';
+      document.getElementById('growthFill').style.width = (done / span * 100) + '%';
+      document.getElementById('growthSub').textContent = done.toLocaleString() + ' / ' + span.toLocaleString() + ' 歩';
+      bar.setAttribute('aria-valuemax', span);
+      bar.setAttribute('aria-valuenow', done);
+      const near = left <= NEAR_STEPS;
+      card.classList.toggle('near', near);
+      nudge.hidden = false;
+      nudge.textContent = near
+        ? 'あと少し！ 約' + Math.max(1, Math.ceil(left / STEPS_PER_MIN)) + '分 歩くと「' + GROWTH[next.level][1] + '」'
+        : '1日 ' + DAILY_GOAL_STEPS.toLocaleString() + '歩なら、あと約' + Math.ceil(left / DAILY_GOAL_STEPS) + '日で「' + GROWTH[next.level][1] + '」';
+    }
+    // 歩いている途中で次の段階になったら、その場で小さくお祝い
+    if (current && growthLevel && stage.level > growthLevel) celebrateGrowth(stage);
+    growthLevel = stage.level;
+  }
+  function celebrateGrowth(stage) {
+    const card = document.getElementById('growth');
+    card.classList.remove('just'); void card.offsetWidth; card.classList.add('just');
+    document.querySelectorAll('.growth-toast').forEach((el) => el.remove());
+    const toast = document.createElement('div');
+    toast.className = 'growth-toast';
+    toast.setAttribute('role', 'status');
+    toast.innerHTML = GROWTH[stage.level][0] + ' ' + GROWTH[stage.level][2] + '<small>Lv' + stage.level + '「' + stage.name + '」</small>';
+    document.querySelector('.map-wrap').appendChild(toast);
+    setTimeout(() => toast.remove(), 4300);
+    playChime();
+    try { if (navigator.vibrate) navigator.vibrate([80, 60, 80]); } catch (e) {}
+  }
+  // ピロリン♪ という短い音
+  function playChime() {
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      const ac = new AC();
+      [880, 1319].forEach((freq, i) => {
+        const osc = ac.createOscillator(), gain = ac.createGain();
+        osc.type = 'triangle'; osc.frequency.value = freq;
+        const t = ac.currentTime + i * 0.12, len = i ? 0.5 : 0.15;
+        gain.gain.setValueAtTime(0.08, t); gain.gain.exponentialRampToValueAtTime(0.001, t + len);
+        osc.connect(gain).connect(ac.destination); osc.start(t); osc.stop(t + len);
+      });
+    } catch (e) {}
+  }
+
+  // ===== 成長の記録 =====
+  // これまでの散歩を古い順にたどって、いつ どの段階になったかを調べる
+  function growthHistory() {
+    const list = walks.concat(current ? [current] : []).slice().sort((a, b) => a.start - b.start);
+    const events = [];
+    if (!list.length) return events;
+    events.push({ time: list[0].start, icon: '🚶', text: '散歩をはじめた', level: 1 });
+    let meters = 0;
+    let level = 1;
+    for (const w of list) {
+      meters += w.distance;
+      const reached = getStage(Math.round(meters / STRIDE_M)).level;
+      for (let lv = level + 1; lv <= reached; lv++) {
+        events.push({ time: w.start, icon: GROWTH[lv][0], text: GROWTH[lv][1], level: lv });
+      }
+      level = Math.max(level, reached);
+    }
+    // ガネーシャになった日（1日 13,000歩）と、神になった日（7日つづけて目標達成）
+    const days = [...new Set(list.map((w) => startOfDay(w.start)))].sort((a, b) => a - b);
+    const prevDay = (day) => startOfDay(day - 86400000 + 3600000 * 2);
+    let streak = 0, lastGoalDay = null;
+    for (const day of days) {
+      const steps = stepsOfDay(day);
+      if (steps >= GANESHA_STEPS) events.push({ time: day + 86399000, form: 'ganesha', text: 'ガネーシャになった（' + steps.toLocaleString() + '歩）' });
+      if (steps >= DAILY_GOAL_STEPS) {
+        streak = lastGoalDay === prevDay(day) ? streak + 1 : 1;
+        lastGoalDay = day;
+        if (streak === GOD_DAYS) events.push({ time: day + 86399500, form: 'god', text: '神になった（' + GOD_DAYS + '日つづけて ' + DAILY_GOAL_STEPS.toLocaleString() + '歩）' });
+      }
+    }
+    return events.sort((a, b) => a.time - b.time);
+  }
+  function recordDate(time) {
+    const d = new Date(time);
+    const md = (d.getMonth() + 1) + '月' + d.getDate() + '日';
+    return d.getFullYear() === new Date().getFullYear() ? md : d.getFullYear() + '年' + md;
+  }
+  function openRecord() {
+    const events = growthHistory();
+    const steps = totalSteps();
+    const next = STAGES.find((s) => s.level === getStage(steps).level + 1);
+    let html = events.map((e) => {
+      const look = e.form && WALKER_LOOKS[e.form];
+      const icon = look ? '<img src="' + look.src + '" alt="">' : e.icon;
+      return '<li' + (e.form ? ' class="form"' : '') + '><span class="record-icon" aria-hidden="true">' + icon + '</span><span class="record-body">' +
+        '<span class="record-date">' + recordDate(e.time) + (e.level > 1 ? '・Lv' + e.level : '') + '</span>' +
+        '<span class="record-text">' + e.text + '</span></span></li>';
+    }).join('');
+    if (next) {
+      html += '<li class="next"><span class="record-icon" aria-hidden="true">？</span><span class="record-body">' +
+        '<span class="record-date">次の成長・Lv' + next.level + '</span>' +
+        '<span class="record-text">あと ' + (next.requiredSteps - steps).toLocaleString() + ' 歩で 何かが起こる…</span></span></li>';
+    }
+    if (!events.length) html = '<li class="next"><span class="record-icon" aria-hidden="true">🫘</span><span class="record-body">' +
+      '<span class="record-text">まだ記録はありません。歩きはじめると、ここに世界の変化が残ります。</span></span></li>';
+    document.getElementById('recordList').innerHTML = html;
+    const page = document.getElementById('recordPage');
+    page.hidden = false;
+    page.scrollTop = 0;
   }
 
   // 大きな絵を描く。見えた場所ははっきり、まだの所はうっすら
@@ -1123,6 +1356,8 @@
     replayDay(Number(item.dataset.index));
   }
   document.getElementById('walkList').addEventListener('click', onWalkPick);
+  document.getElementById('recordButton').addEventListener('click', openRecord);
+  document.getElementById('recordClose').addEventListener('click', () => { document.getElementById('recordPage').hidden = true; });
   document.getElementById('walkList').addEventListener('keydown', onWalkPick);
   document.getElementById('prevDay').addEventListener('click', () => {
     stopReplay(); viewDay -= 86400000; viewDay = startOfDay(viewDay + 3600000); renderDay();
