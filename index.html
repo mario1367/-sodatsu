@@ -138,6 +138,11 @@
   .deco.sway { animation: deco-sway 3.5s ease-in-out infinite alternate; }
   .deco.fly  { animation: deco-fly 3s ease-in-out infinite alternate; }
   .deco.hop  { animation: deco-hop 2.4s ease-in-out infinite; z-index: 3; } /* 動物は花より手前 */
+  .deco.chara { z-index: 3; } /* キャラクターとキノコは花より手前 */
+  .deco.crawl { animation: deco-crawl 9s ease-in-out infinite alternate; }
+  .deco.drive { animation: deco-drive 14s linear infinite; }
+  @keyframes deco-crawl { from { transform: translateX(-24px); } to { transform: translateX(24px); } }
+  @keyframes deco-drive { from { transform: translateX(-75vw); } to { transform: translateX(75vw); } }
   .deco.petal { animation: deco-petal 7s linear infinite; opacity: 0; }
   @keyframes deco-petal {
     0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
@@ -304,6 +309,22 @@
     { level: 10, emoji: '🐝', x: 60, y: 44, size: 24, move: 'fly' },
     { level: 10, emoji: '🌻', x: 30, y: 17, size: 30, move: 'sway' },
   ];
+  // 送ってもらった絵のキャラクター（img: chars/ の画像、size: 高さpx）。Lv3 から少しずつ増える
+  DECORATIONS.push(
+    { level: 3,  img: 'bf_yellow', x: 68, y: 46, size: 26, move: 'fly' },
+    { level: 4,  img: 'bf_blue',   x: 30, y: 38, size: 30, move: 'fly' },
+    { level: 5,  img: 'cat_sit',   x: 90, y: 3,  size: 34, move: 'hop', chara: true },
+    { level: 6,  img: 'bf_purple', x: 38, y: 60, size: 36, move: 'fly' },
+    { level: 6,  img: 'cat_fly',   x: 74, y: 52, size: 32, move: 'fly' },
+    { level: 7,  img: 'helmet',    x: 16, y: 10, size: 46, move: 'hop', chara: true },
+    { level: 8,  img: 'snail',     x: 62, y: 3,  size: 46, move: 'crawl', chara: true },
+    { level: 9,  img: 'girl_mush', x: 33, y: 4,  size: 62, move: 'sway', chara: true },
+    { level: 9,  img: 'mushroom',  x: 90, y: 6,  size: 38, move: 'sway', chara: true },
+    { level: 10, img: 'mushroom',  x: 8,  y: 2,  size: 52, move: 'sway', chara: true },
+    { level: 10, img: 'mushroom',  x: 52, y: 1,  size: 30, move: 'sway', chara: true },
+    { level: 10, img: 'mushroom',  x: 74, y: 13, size: 26, move: 'sway', chara: true },
+    { level: 10, img: 'car',       x: 50, y: 1,  size: 40, move: 'drive', chara: true },
+  );
   // Lv10：地面いっぱいに花が咲き、花びらが舞う
   const FLOWERS = ['🌸', '🌷', '🌺', '🌼', '🌹', '🪻', '💐', '🌸'];
   // 木に咲く花（x/y: 木の絵の中の位置%、最後の数字: 大きさ）
@@ -535,8 +556,9 @@
       ? 'これまで ' + steps.toLocaleString() + ' 歩・次まで あと ' + (next.requiredSteps - steps).toLocaleString() + ' 歩'
       : 'これまで ' + steps.toLocaleString() + ' 歩・最高の段階です';
     document.getElementById('scene').innerHTML = DECORATIONS.filter((d) => stage.level >= d.level).map((d, i) =>
-      '<span class="deco ' + d.move + '" style="left:' + d.x + '%;bottom:' + d.y + '%;font-size:' + d.size +
-      'px;animation-delay:-' + (d.move === 'petal' ? (i * 0.9) % 7 : (i * 0.7) % 3).toFixed(1) + 's">' + d.emoji + '</span>'
+      '<span class="deco ' + d.move + (d.chara ? ' chara' : '') + '" style="left:' + d.x + '%;bottom:' + d.y + '%;font-size:' + d.size +
+      'px;animation-delay:-' + (d.move === 'petal' ? (i * 0.9) % 7 : (i * 0.7) % 3).toFixed(1) + 's">' +
+      (d.img ? '<img src="chars/' + d.img + '.png" alt="" style="height:' + d.size + 'px;display:block">' : d.emoji) + '</span>'
     ).join('');
   }
 
