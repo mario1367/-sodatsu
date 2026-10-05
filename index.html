@@ -136,7 +136,7 @@
   .deco { position: absolute; line-height: 1; translate: -50% 0; transform-origin: 50% 100%; z-index: 2; }
   .deco.sway { animation: deco-sway 3.5s ease-in-out infinite alternate; }
   .deco.fly  { animation: deco-fly 3s ease-in-out infinite alternate; }
-  .deco.hop  { animation: deco-hop 2.4s ease-in-out infinite; }
+  .deco.hop  { animation: deco-hop 2.4s ease-in-out infinite; z-index: 3; } /* 動物は花より手前 */
   .deco.petal { animation: deco-petal 7s linear infinite; opacity: 0; }
   @keyframes deco-petal {
     0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
@@ -306,14 +306,19 @@
   ];
   // Lv10：地面いっぱいに花が咲き、花びらが舞う
   const FLOWERS = ['🌸', '🌷', '🌺', '🌼', '🌹', '🪻', '💐', '🌸'];
-  for (let i = 0; i < 26; i++) {
-    DECORATIONS.push({
-      level: 10, emoji: FLOWERS[i % FLOWERS.length],
-      x: 3 + ((i * 37) % 95), y: 2 + ((i * 53) % 17), size: 22 + ((i * 7) % 14), move: 'sway',
-    });
+  // 地面を4段に分けて、すき間なく花を並べる
+  for (let row = 0; row < 4; row++) {
+    for (let col = 0; col < 16; col++) {
+      const i = row * 16 + col;
+      DECORATIONS.push({
+        level: 10, emoji: FLOWERS[(i * 3 + row) % FLOWERS.length],
+        x: 1 + col * 6.4 + (row % 2) * 3 + ((i * 7) % 3), y: 1 + row * 5.5 + ((i * 5) % 3),
+        size: 22 + ((i * 7) % 12), move: 'sway',
+      });
+    }
   }
-  for (let i = 0; i < 8; i++) {
-    DECORATIONS.push({ level: 10, emoji: '🌸', x: 6 + i * 12, y: 92, size: 16 + (i % 3) * 4, move: 'petal' });
+  for (let i = 0; i < 16; i++) {
+    DECORATIONS.push({ level: 10, emoji: '🌸', x: 3 + i * 6, y: 92, size: 16 + (i % 3) * 4, move: 'petal' });
   }
 
   // ===== 保存データ =====
