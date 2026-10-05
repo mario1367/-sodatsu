@@ -413,7 +413,23 @@
     font-family: var(--font);
     cursor: pointer;
   }
-  .stepper output { font-size: 1.8rem; font-weight: 700; min-width: 2.5ch; text-align: center; font-variant-numeric: tabular-nums; }
+  .stepper input {
+    font: inherit;
+    font-size: 1.6rem;
+    font-weight: 700;
+    width: 5.5ch;
+    min-width: 0;
+    padding: 6px 8px;
+    text-align: center;
+    border: 2px solid var(--track);
+    border-radius: 12px;
+    background: var(--input-bg);
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .stepper input:focus { outline: none; border-color: var(--leaf); }
+  .stepper.wide input { width: 7ch; }
+  .today-progress { margin: 0; font-size: 0.95rem; color: var(--leaf-dark); font-weight: 700; }
   .stepper .unit-label { color: var(--ink-soft); }
   .sheet-actions { display: flex; flex-direction: column; gap: 8px; }
   .text-button {
@@ -517,12 +533,36 @@
       <input type="text" id="goalTitle" placeholder="例：絵を30作品完成させる" maxlength="40">
     </div>
 
-    <div class="field">
+    <fieldset class="field">
+      <legend>目標のタイプ</legend>
+      <div class="chips">
+        <input type="radio" name="goalType" id="typeTotal" value="total" checked><label for="typeTotal">📦 合計を積み上げる</label>
+        <input type="radio" name="goalType" id="typeDaily" value="daily"><label for="typeDaily">📅 毎日の目標をクリアする</label>
+      </div>
+      <span class="hint" id="typeHint">例：絵を30作品、本を1冊、登録者1000人</span>
+    </fieldset>
+
+    <!-- 合計を積み上げるタイプ -->
+    <div class="field" id="totalFields">
       <label for="goalTarget">最終目標</label>
       <span class="hint">どこまで行けば達成か、数と単位で決めます</span>
       <div class="row">
         <input class="target" type="number" id="goalTarget" placeholder="30" min="1" inputmode="numeric">
         <input class="unit" type="text" id="goalUnit" placeholder="作品" maxlength="8">
+      </div>
+    </div>
+
+    <!-- 毎日の目標をクリアするタイプ -->
+    <div class="field" id="dailyFields" hidden>
+      <label for="dailyTarget">1日の目標</label>
+      <div class="row">
+        <input class="target" type="number" id="dailyTarget" placeholder="5000" min="1" inputmode="numeric">
+        <input class="unit" type="text" id="dailyUnit" placeholder="歩" maxlength="8">
+      </div>
+      <label for="dailyDays">何日クリアしたら達成？</label>
+      <div class="row">
+        <input class="target" type="number" id="dailyDays" placeholder="30" min="1" inputmode="numeric">
+        <span class="unit-label" style="align-self:center">日</span>
       </div>
     </div>
 
@@ -563,6 +603,7 @@
       <span class="goal-category" id="goalCategory"></span>
       <p class="goal-title" id="goalTitleText"></p>
       <p class="goal-progress" id="goalProgress"></p>
+      <p class="today-progress" id="goalToday" hidden></p>
     </div>
 
     <div class="level-row">
@@ -615,18 +656,19 @@
     <h2 id="sheetTitle">今日はどんな一歩でしたか？</h2>
     <form id="recordForm" novalidate>
       <div class="field">
-        <label for="recordDid">今日やったこと</label>
+        <label for="recordDid">今日やったこと <span class="hint" id="didHint"></span></label>
         <input type="text" id="recordDid" placeholder="例：背景の下書きをした" maxlength="60">
       </div>
 
       <div class="field">
-        <span class="field-label" id="amountLabel"><strong>進捗量</strong> <span class="hint">（目標に何個近づいたか。0でもOK）</span></span>
-        <div class="stepper" role="group" aria-labelledby="amountLabel">
+        <label for="recordAmount" id="amountLabel"><strong id="amountTitle">進捗量</strong> <span class="hint" id="amountHint">（目標に何個近づいたか。0でもOK）</span></label>
+        <div class="stepper" id="stepper">
           <button type="button" id="amountMinus" aria-label="1へらす">−</button>
-          <output id="recordAmount">1</output>
+          <input type="number" id="recordAmount" min="0" inputmode="numeric" value="1">
           <span class="unit-label" id="amountUnit">作品</span>
           <button type="button" id="amountPlus" aria-label="1ふやす">＋</button>
         </div>
+        <p class="today-progress" id="todaySoFar" hidden></p>
       </div>
 
       <div class="field">
@@ -858,10 +900,13 @@
   function renderTimeline() {
     // 上の3つの数字
     const days = new Set(records.map((r) => r.day));
-    const amountSum = records.reduce((sum, r) => sum + r.amount, 0);
+    const daily = isDaily();
+    const amountSum = daily
+      ? records.reduce((sum, r) => sum + (r.value || 0), 0)
+      : records.reduce((sum, r) => sum + r.amount, 0);
     document.getElementById('sumDays').textContent = days.size;
-    document.getElementById('sumAmount').textContent = amountSum;
-    document.getElementById('sumAmountLabel').textContent = '進んだ' + goal.unit;
+    document.getElementById('sumAmount').textContent = amountSum.toLocaleString();
+    document.getElementById('sumAmountLabel').textContent = daily ? '合計の' + goal.dailyUnit : '進んだ' + goal.unit;
     document.getElementById('sumXp').textContent = totalXp;
 
     const list = document.getElementById('timelineList');
@@ -877,13 +922,24 @@
       const dayRecords = records.filter((r) => r.day === day);
       const label = day === today ? '今日' : day === today - 1 ? '昨日' : formatDayWithWeek(day);
       html += '<section class="day-group">';
-      html += '<h2><span>' + label + '</span><span>' + (day === today || day === today - 1 ? formatDay(day) : '') + '</span></h2>';
+      let right = day === today || day === today - 1 ? formatDay(day) : '';
+      if (daily) right = valueOnDay(day).toLocaleString() + ' / ' + goal.dailyTarget.toLocaleString() + ' ' + escapeHtml(goal.dailyUnit);
+      html += '<h2><span>' + label + '</span><span>' + right + '</span></h2>';
       for (const r of dayRecords.slice().reverse()) {
-        let meta = '+' + r.amount + ' ' + escapeHtml(goal.unit);
-        if (r.xp > 0) meta += '・+' + r.xp + ' XP';
+        // 毎日タイプで「やったこと」が空なら、数（例：3,200 歩）を見出しにする
+        const valueText = (r.value || 0).toLocaleString() + ' ' + escapeHtml(goal.dailyUnit || '');
+        const title = r.did ? escapeHtml(r.did) : valueText;
+        const parts = [];
+        if (daily) {
+          if (r.did) parts.push(valueText);
+          if (r.amount > 0) parts.push('✅ クリア');
+        } else {
+          parts.push('+' + r.amount + ' ' + escapeHtml(goal.unit));
+        }
+        if (r.xp > 0) parts.push('+' + r.xp + ' XP');
         html += '<div class="entry">';
-        html += '<p class="entry-did">' + escapeHtml(r.did) + '</p>';
-        html += '<p class="entry-meta">' + meta + '</p>';
+        html += '<p class="entry-did">' + title + '</p>';
+        if (parts.length) html += '<p class="entry-meta">' + parts.join('・') + '</p>';
         if (r.memo) html += '<p class="entry-memo">💬 ' + escapeHtml(r.memo) + '</p>';
         html += '</div>';
       }
@@ -892,13 +948,25 @@
     list.innerHTML = html;
   }
 
+  // 毎日の目標をクリアするタイプかどうか
+  function isDaily() {
+    return goal !== null && goal.type === 'daily';
+  }
+
+  // その日に記録した数（歩数など）の合計
+  function valueOnDay(day) {
+    return records.filter((r) => r.day === day).reduce((sum, r) => sum + (r.value || 0), 0);
+  }
+
   // ホームの目標表示を描き直す
   function renderGoal() {
     if (!goal) return;
     document.getElementById('goalCategory').textContent = goal.category;
     document.getElementById('goalTitleText').textContent = goal.title;
 
-    let text = '進捗 <strong>' + goal.current + '</strong> / ' + goal.target + ' ' + escapeHtml(goal.unit);
+    let text = isDaily()
+      ? 'クリアした日 <strong>' + goal.current + '</strong> / ' + goal.target + ' 日'
+      : '進捗 <strong>' + goal.current + '</strong> / ' + goal.target + ' ' + escapeHtml(goal.unit);
     if (goal.deadline) {
       const [y, m, d] = goal.deadline.split('-').map(Number);
       const deadlineDay = Math.floor(Date.UTC(y, m - 1, d) / 86400000);
@@ -907,6 +975,16 @@
       text += daysLeft >= 0 ? '（あと' + daysLeft + '日）' : '（期限をすぎました）';
     }
     document.getElementById('goalProgress').innerHTML = text;
+
+    // 毎日タイプは「今日 3200 / 5000 歩」も出す
+    const todayLine = document.getElementById('goalToday');
+    todayLine.hidden = !isDaily();
+    if (isDaily()) {
+      const v = valueOnDay(today);
+      todayLine.textContent = v >= goal.dailyTarget
+        ? '✅ 今日 ' + v + ' / ' + goal.dailyTarget + ' ' + goal.dailyUnit + '　クリア！'
+        : '今日 ' + v + ' / ' + goal.dailyTarget + ' ' + goal.dailyUnit + '　あと ' + (goal.dailyTarget - v) + ' ' + goal.dailyUnit;
+    }
   }
 
   // 入力された文字をそのままHTMLに入れても安全なようにする
@@ -914,23 +992,46 @@
     return str.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
+  // 目標のタイプを切り替えたとき、入力欄を入れかえる
+  function switchGoalType() {
+    const daily = document.getElementById('typeDaily').checked;
+    document.getElementById('totalFields').hidden = daily;
+    document.getElementById('dailyFields').hidden = !daily;
+    document.getElementById('typeHint').textContent = daily
+      ? '例：毎日5000歩を30日、毎日30分勉強を100日'
+      : '例：絵を30作品、本を1冊、登録者1000人';
+    document.getElementById('goalTitle').placeholder = daily ? '例：毎日5000歩歩く' : '例：絵を30作品完成させる';
+  }
+
   // 目標登録フォームを送ったとき
   function submitGoal(event) {
     event.preventDefault(); // ページが再読み込みされないようにする
     const title = document.getElementById('goalTitle').value.trim();
-    const target = Number(document.getElementById('goalTarget').value);
-    const unit = document.getElementById('goalUnit').value.trim();
+    const type = document.querySelector('input[name="goalType"]:checked').value;
     const deadline = document.getElementById('goalDeadline').value; // 空ならなし
     const category = document.querySelector('input[name="category"]:checked').value;
-
-    // 入力チェック
     const error = document.getElementById('formError');
     if (!title) { error.textContent = '目標名を入れてください'; return; }
-    if (!Number.isInteger(target) || target < 1) { error.textContent = '最終目標は1以上の数で入れてください'; return; }
-    if (!unit) { error.textContent = '単位を入れてください（例：作品、日、人）'; return; }
-    error.textContent = '';
 
-    goal = { title, target, unit, current: 0, deadline, category };
+    if (type === 'daily') {
+      // 毎日の目標をクリアするタイプ（例：毎日5000歩を30日）
+      const dailyTarget = Number(document.getElementById('dailyTarget').value);
+      const dailyUnit = document.getElementById('dailyUnit').value.trim();
+      const days = Number(document.getElementById('dailyDays').value);
+      if (!Number.isInteger(dailyTarget) || dailyTarget < 1) { error.textContent = '1日の目標は1以上の数で入れてください'; return; }
+      if (!dailyUnit) { error.textContent = '1日の目標の単位を入れてください（例：歩、分、ページ）'; return; }
+      if (!Number.isInteger(days) || days < 1) { error.textContent = '何日クリアしたら達成か、1以上の数で入れてください'; return; }
+      error.textContent = '';
+      goal = { type, title, target: days, unit: '日', dailyTarget, dailyUnit, current: 0, deadline, category };
+    } else {
+      // 合計を積み上げるタイプ（例：絵を30作品）
+      const target = Number(document.getElementById('goalTarget').value);
+      const unit = document.getElementById('goalUnit').value.trim();
+      if (!Number.isInteger(target) || target < 1) { error.textContent = '最終目標は1以上の数で入れてください'; return; }
+      if (!unit) { error.textContent = '単位を入れてください（例：作品、日、人）'; return; }
+      error.textContent = '';
+      goal = { type, title, target, unit, current: 0, deadline, category };
+    }
     save();
     showScreen();
     renderGoal();
@@ -1030,20 +1131,33 @@
   }
 
   // ===== 記録入力シート =====
-  let amount = 1; // シートで選んでいる進捗量
 
   // 「今日進んだ」を押したとき：シートを開く
   function openRecordSheet() {
     document.getElementById('recordForm').reset();
     document.getElementById('recordError').textContent = '';
-    amount = 1;
-    document.getElementById('recordAmount').textContent = amount;
-    document.getElementById('amountUnit').textContent = goal.unit;
+    const daily = isDaily();
+    document.getElementById('recordAmount').value = daily ? '' : 1;
+    document.getElementById('amountUnit').textContent = daily ? goal.dailyUnit : goal.unit;
+    document.getElementById('amountTitle').textContent = daily ? '今日の' + goal.dailyUnit + '数' : '進捗量';
+    document.getElementById('amountHint').textContent = daily
+      ? '（何回かに分けて記録しても、その日の合計で数えます）'
+      : '（目標に何個近づいたか。0でもOK）';
+    document.getElementById('recordAmount').placeholder = daily ? String(goal.dailyTarget) : '';
+    // 毎日タイプは大きな数を直接入れるので、＋−ボタンは隠す
+    document.getElementById('amountMinus').hidden = daily;
+    document.getElementById('amountPlus').hidden = daily;
+    document.getElementById('stepper').classList.toggle('wide', daily);
+    document.getElementById('didHint').textContent = daily ? '（なくてもOK）' : '';
+    document.getElementById('recordDid').placeholder = daily ? '例：駅まで歩いた' : '例：背景の下書きをした';
+    const soFar = document.getElementById('todaySoFar');
+    soFar.hidden = !daily;
+    if (daily) soFar.textContent = '今日はここまで ' + valueOnDay(today) + ' / ' + goal.dailyTarget + ' ' + goal.dailyUnit;
     document.getElementById('xpNote').textContent = lastRecordDay === today
       ? '今日のXPはもうもらっています。進捗とメモは記録できます'
       : '記録すると XP がもらえます';
     document.getElementById('recordSheet').hidden = false;
-    document.getElementById('recordDid').focus();
+    document.getElementById(isDaily() ? 'recordAmount' : 'recordDid').focus();
   }
 
   function closeRecordSheet() {
@@ -1052,18 +1166,40 @@
 
   // ＋／− ボタン
   function changeAmount(diff) {
-    amount = Math.max(0, amount + diff);
-    document.getElementById('recordAmount').textContent = amount;
+    const input = document.getElementById('recordAmount');
+    input.value = Math.max(0, (Number(input.value) || 0) + diff);
   }
 
   // 「記録する」を押したとき
   function submitRecord(event) {
     event.preventDefault();
-    const did = document.getElementById('recordDid').value.trim();
+    let did = document.getElementById('recordDid').value.trim();
     const memo = document.getElementById('recordMemo').value.trim();
-    if (!did) {
-      document.getElementById('recordError').textContent = '今日やったことを一言入れてください';
+    const daily = isDaily();
+    const inputValue = Number(document.getElementById('recordAmount').value);
+    const error = document.getElementById('recordError');
+    if (!Number.isInteger(inputValue) || inputValue < 0) {
+      error.textContent = daily ? '今日の' + goal.dailyUnit + '数を数字で入れてください' : '進捗量は0以上の数で入れてください';
       return;
+    }
+    if (daily && inputValue === 0 && !did) {
+      error.textContent = '今日の' + goal.dailyUnit + '数を入れてください';
+      return;
+    }
+    if (!daily && !did) {
+      error.textContent = '今日やったことを一言入れてください';
+      return;
+    }
+
+    // 目標に何個近づいたか（毎日タイプは、その日の合計が目標を超えた瞬間に「1日」）
+    let amount = inputValue;
+    let value = 0;
+    let clearedToday = false;
+    if (daily) {
+      value = inputValue;
+      const beforeSum = valueOnDay(today);
+      clearedToday = beforeSum < goal.dailyTarget && beforeSum + value >= goal.dailyTarget;
+      amount = clearedToday ? 1 : 0;
     }
 
     // --- XP（1日1回まで） ---
@@ -1089,7 +1225,9 @@
     goal.current = goal.current + amount;
 
     // --- 記録を残す ---
-    records.push({ day: today, did, amount, memo, xp: gained });
+    const record = { day: today, did, amount, memo, xp: gained };
+    if (daily) record.value = value;
+    records.push(record);
 
     // --- メッセージ ---
     let message;
@@ -1097,6 +1235,8 @@
       message = '🌸 目標達成！花が咲きました';
     } else if (after.level > before.level) {
       message = '🎉 Lv' + after.level + '　' + after.name + '！';
+    } else if (clearedToday) {
+      message = '✅ 今日の目標クリア！ ' + valueOnDay(today) + ' ' + goal.dailyUnit;
     } else if (gained > 0) {
       message = '+' + gained + ' XP！ 世界が少し育ちました';
     } else {
@@ -1149,6 +1289,7 @@
     today = getTodayNumber();
     document.getElementById('message').textContent = '';
     document.getElementById('goalForm').reset();
+    switchGoalType();
     save();
     showScreen();
     render();
@@ -1172,6 +1313,11 @@
   });
   document.getElementById('resetButton').addEventListener('click', resetAll);
   document.getElementById('goalForm').addEventListener('submit', submitGoal);
+  document.getElementById('typeTotal').addEventListener('change', switchGoalType);
+  document.getElementById('typeDaily').addEventListener('change', switchGoalType);
+  document.getElementById('recordAmount').addEventListener('input', () => {
+    document.getElementById('recordError').textContent = '';
+  });
   document.getElementById('bloomClose').addEventListener('click', closeBloom);
 
   // アプリを開いたとき：保存したデータを読み込んでから表示する
