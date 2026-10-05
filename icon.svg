@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#cfeaf5"/>
+      <stop offset="1" stop-color="#eef7e6"/>
+    </linearGradient>
+    <linearGradient id="hill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7cc46a"/>
+      <stop offset="1" stop-color="#3f8f4f"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#sky)"/>
+  <!-- 丘 -->
+  <path d="M0 300 C120 240 260 250 512 290 L512 512 L0 512 Z" fill="url(#hill)"/>
+  <!-- 歩いた赤い道 -->
+  <path d="M70 470 C150 440 120 380 210 370 C300 360 250 320 320 300 C350 292 360 285 368 272"
+        fill="none" stroke="#ffffff" stroke-width="34" stroke-linecap="round" opacity="0.55"/>
+  <path d="M70 470 C150 440 120 380 210 370 C300 360 250 320 320 300 C350 292 360 285 368 272"
+        fill="none" stroke="#e53935" stroke-width="20" stroke-linecap="round"/>
+  <!-- 道の終わりの芽 -->
+  <path d="M372 270 C372 230 374 205 380 180" fill="none" stroke="#2f6f3a" stroke-width="12" stroke-linecap="round"/>
+  <path d="M380 190 C340 150 300 165 292 190 C320 215 360 212 380 190 Z" fill="#5fb54f"/>
+  <path d="M382 180 C405 125 455 120 470 140 C455 185 410 195 382 180 Z" fill="#7cc46a"/>
+  <!-- スタート地点の丸 -->
+  <circle cx="70" cy="470" r="22" fill="#e53935"/>
+  <circle cx="70" cy="470" r="9" fill="#ffffff"/>
+</svg>
