@@ -521,6 +521,7 @@
     normal: { src: 'walker.png',     w: 38, h: 55, alt: '歩く人' },
     god:    { src: 'chars/god.png',  w: 46, h: 64, alt: '雲に乗った神さま' },
     zou:    { src: 'chars/zou.png',  w: 56, h: 52, alt: '象人間' },
+    ganesha:{ src: 'chars/ganesha.png', w: 58, h: 62, alt: 'ガネーシャ' },
   };
   function walkerIcon() {
     const look = WALKER_LOOKS[form] || WALKER_LOOKS.normal;
@@ -838,6 +839,7 @@
   const GOD_DAYS = 7;          // 7日つづけて目標を達成すると、神になる
   const LAZY_DAYS = 3;         // 3日つづけてほとんど歩かないと、象人間になる
   const LAZY_STEPS = 1000;     // 1日これより少ないと「ほとんど歩いていない」
+  const GANESHA_STEPS = 13000; // 1日にこれより多く歩くと、その日はガネーシャになる
   function stepsOfDay(day) {
     const meters = walks.filter((w) => startOfDay(w.start) === day).reduce((s, w) => s + w.distance, 0)
       + (current && startOfDay(current.start) === day ? current.distance : 0);
@@ -846,6 +848,7 @@
   function judgeForm() {
     if (!walks.length) return 'normal';
     const today = startOfDay(Date.now());
+    if (stepsOfDay(today) >= GANESHA_STEPS) return 'ganesha';
     const dayBefore = (day, n) => startOfDay(day - n * 86400000 + 3600000 * 2);
     // 神：今日（または昨日）までの連続達成日数
     let streak = 0;
@@ -865,6 +868,8 @@
     god: ['なんと！', 'あなたは すごいので 神に なりました！', '（' + GOD_DAYS + '日 つづけて ' + DAILY_GOAL_STEPS.toLocaleString() + '歩 あるいた）'],
     zou: ['な、なんと！', 'なまけていたので 象人間に なってしまった！', '歩けば もとの すがたに もどれるぞ。'],
     fromZou: ['のろいが とけた！', 'もとの すがたに もどった！'],
+    ganesha: ['な、なんと！', 'きょうは ' + GANESHA_STEPS.toLocaleString() + '歩を こえたので', 'ガネーシャに なった！'],
+    fromGanesha: ['ガネーシャの ちからが きえた……', 'また たくさん 歩けば ガネーシャに なれるぞ。'],
     fromGod: ['神の ちからが きえてしまった……', 'また ' + GOD_DAYS + '日 つづけて 歩けば 神に もどれるぞ。'],
   };
   function checkForm() {
@@ -874,10 +879,9 @@
     form = next;
     save();
     showView('world');
-    const lines = next === 'god' ? FORM_MESSAGES.god
-      : next === 'zou' ? FORM_MESSAGES.zou
-      : before === 'zou' ? FORM_MESSAGES.fromZou : FORM_MESSAGES.fromGod;
-    if (next === 'zou') playSadTune(); else playFanfare(next === 'god');
+    const lines = FORM_MESSAGES[next]
+      || (before === 'zou' ? FORM_MESSAGES.fromZou : before === 'ganesha' ? FORM_MESSAGES.fromGanesha : FORM_MESSAGES.fromGod);
+    if (next === 'zou') playSadTune(); else playFanfare(next === 'god' || next === 'ganesha');
     showFormPortrait(next);
     showMessages(lines, () => hideFormPortrait());
   }
