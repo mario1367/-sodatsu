@@ -16,24 +16,30 @@
     --card: #ffffff;      /* 下のパネル */
     --ink: #24382a;       /* 文字 */
     --ink-soft: #62775f;  /* 補足の文字 */
-    --path: #e8663d;      /* 歩いた線（夕焼けのオレンジ） */
-    --path-old: #f0a487;  /* 再生前のうすい線 */
+    --path: #e53935;      /* 歩いた線（赤） */
+    --path-old: #f3b2ae;  /* 再生前のうすい線 */
     --go: #3f8f4f;        /* 歩きはじめるボタン */
     --stop: #c9503a;      /* おわるボタン */
     --on-button: #ffffff;
     --track: #dfe8da;     /* バーの溝・区切り線 */
+    --sky: #d9eef5;       /* 世界の空 */
+    --sky-low: #eef7ea;   /* 地平線近くの空 */
+    --soil: #b98a5e;      /* 土 */
+    --soil-dark: #8e6440; /* 土の影 */
     --font: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "Yu Gothic", system-ui, sans-serif;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       --page: #121a14; --card: #1b261d; --ink: #e4eee0; --ink-soft: #a6b9a2;
-      --path: #ff8a5c; --path-old: #8a5444; --go: #5fae6c; --stop: #e0694f; --on-button: #10180f; --track: #2c3a2d;
+      --path: #ff5a52; --path-old: #6e3633; --go: #5fae6c; --stop: #e0694f; --on-button: #10180f; --track: #2c3a2d;
+      --sky: #1b2b3d; --sky-low: #25362c; --soil: #6e5139; --soil-dark: #4f3926;
       color-scheme: dark;
     }
   }
   :root[data-theme="dark"] {
     --page: #121a14; --card: #1b261d; --ink: #e4eee0; --ink-soft: #a6b9a2;
-    --path: #ff8a5c; --path-old: #8a5444; --go: #5fae6c; --stop: #e0694f; --on-button: #10180f; --track: #2c3a2d;
+    --path: #ff5a52; --path-old: #6e3633; --go: #5fae6c; --stop: #e0694f; --on-button: #10180f; --track: #2c3a2d;
+      --sky: #1b2b3d; --sky-low: #25362c; --soil: #6e5139; --soil-dark: #4f3926;
     color-scheme: dark;
   }
 
@@ -70,6 +76,64 @@
     background: var(--card); color: var(--ink);
     border-radius: 14px; padding: 10px 14px; font-size: 0.9rem;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+  }
+
+  /* ===== 地図／世界の切りかえ ===== */
+  .view-toggle {
+    position: absolute; z-index: 700; top: 12px; left: 50%; translate: -50% 0;
+    display: flex; background: var(--card); border-radius: 999px; padding: 4px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+  }
+  .view-toggle button {
+    border: none; background: transparent; color: var(--ink-soft);
+    font-family: var(--font); font-weight: 700; font-size: 0.95rem;
+    padding: 8px 16px; border-radius: 999px; cursor: pointer;
+  }
+  .view-toggle button[aria-pressed="true"] { background: var(--go); color: var(--on-button); }
+  .map-note { top: 64px; }
+
+  /* ===== 歩いた分だけ育つ世界 ===== */
+  .world {
+    position: absolute; inset: 0; z-index: 650; overflow: hidden;
+    background: linear-gradient(var(--sky), var(--sky-low));
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+    padding-bottom: 24px;
+  }
+  .world-title { position: absolute; top: 64px; left: 0; right: 0; text-align: center; margin: 0; display: flex; flex-direction: column; gap: 2px; }
+  .world-title strong { font-size: 1.3rem; }
+  .world-title span { font-size: 0.85rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  .plant {
+    font-size: clamp(110px, 34vw, 170px); line-height: 1;
+    transform-origin: 50% 100%; transition: transform 0.6s ease;
+    margin-bottom: -18px; position: relative; z-index: 1;
+    animation: sway 4s ease-in-out infinite alternate;
+  }
+  @keyframes sway { from { rotate: -2deg; } to { rotate: 2deg; } }
+  .plant.levelup { animation: levelup 0.9s cubic-bezier(.3,1.6,.5,1), sway 4s ease-in-out infinite alternate; }
+  @keyframes levelup { 0% { scale: 0.3; opacity: 0.2; } 60% { scale: 1.18; opacity: 1; } 100% { scale: 1; } }
+  .ground {
+    width: 100%; height: 22%; min-height: 60px; background: var(--soil);
+    border-radius: 50% 50% 0 0 / 40px 40px 0 0; box-shadow: inset 0 -18px 0 var(--soil-dark);
+  }
+  .scene { position: absolute; inset: 0; pointer-events: none; }
+  .deco { position: absolute; line-height: 1; translate: -50% 0; transform-origin: 50% 100%; z-index: 2; }
+  .deco.sway { animation: deco-sway 3.5s ease-in-out infinite alternate; }
+  .deco.fly  { animation: deco-fly 3s ease-in-out infinite alternate; }
+  .deco.hop  { animation: deco-hop 2.4s ease-in-out infinite; }
+  @keyframes deco-sway { from { rotate: -4deg; } to { rotate: 4deg; } }
+  @keyframes deco-fly { 0% { transform: translate(0, 0) rotate(-6deg); } 50% { transform: translate(14px, -12px) rotate(4deg); } 100% { transform: translate(-10px, 6px) rotate(-2deg); } }
+  @keyframes deco-hop { 0%, 70%, 100% { transform: translateY(0); } 80% { transform: translateY(-12px); } }
+  .float { position: absolute; z-index: 3; pointer-events: none; font-weight: 700; animation: float-up 1.6s ease-out forwards; }
+  .float.steps-pop { font-size: 1.3rem; color: var(--go); }
+  .float.sparkle { font-size: 1.6rem; }
+  @keyframes float-up {
+    0% { transform: translateY(0) scale(0.6); opacity: 0; }
+    20% { opacity: 1; transform: translateY(-10px) scale(1); }
+    100% { transform: translateY(-70px) scale(1); opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .plant, .plant.levelup, .deco { animation: none !important; }
+    .float { display: none; }
   }
 
   /* ===== 下のパネル ===== */
@@ -122,6 +186,9 @@
     font-size: 0.95rem; font-variant-numeric: tabular-nums;
   }
   .walks li span:last-child { color: var(--ink-soft); }
+  .walks li { cursor: pointer; }
+  .walks li:hover span:first-child, .walks li:focus-visible span:first-child { color: var(--path); }
+  .walks li:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
   .hint { margin: 0; font-size: 0.85rem; color: var(--ink-soft); text-align: center; line-height: 1.6; }
   .live { margin: 0; text-align: center; font-weight: 700; color: var(--stop); }
   .live::before { content: "● "; animation: blink 1.2s infinite; }
@@ -133,6 +200,16 @@
 <div class="app">
   <div class="map-wrap">
     <div id="map" aria-label="歩いた道の地図"></div>
+    <div class="view-toggle" role="group" aria-label="表示の切りかえ">
+      <button type="button" id="showMap" aria-pressed="true">🗺 地図</button>
+      <button type="button" id="showWorld" aria-pressed="false">🌳 世界</button>
+    </div>
+    <section class="world" id="world" aria-label="歩いた分だけ育つ世界" hidden>
+      <p class="world-title"><strong id="stageName">何もない土地</strong><span id="stageInfo"></span></p>
+      <div class="scene" id="scene" aria-hidden="true"></div>
+      <div class="plant" id="plant" aria-hidden="true">🫘</div>
+      <div class="ground"></div>
+    </section>
     <p class="map-note" id="mapNote" hidden></p>
   </div>
 
@@ -168,6 +245,38 @@
   const MIN_MOVE_M = 4;          // これより小さい動きはGPSのブレとして無視
   const MAX_ACCURACY_M = 40;     // 位置の精度がこれより悪いときは使わない
   const SAVE_KEY = 'aruku-data';
+
+  // ===== 歩いた分だけ育つ世界 =====
+  // requiredSteps: これまでに歩いた合計歩数がこの数になると、その段階になる
+  const STAGES = [
+    { level: 1,  emoji: '🫘', size: 0.35, name: '何もない土地',       requiredSteps: 0 },
+    { level: 2,  emoji: '🌱', size: 0.6,  name: '小さな芽が出た',     requiredSteps: 5000 },
+    { level: 3,  emoji: '🌿', size: 0.8,  name: '植物が育った',       requiredSteps: 20000 },
+    { level: 4,  emoji: '🌿', size: 0.85, name: '花が咲きはじめた',   requiredSteps: 50000 },
+    { level: 5,  emoji: '🌳', size: 0.8,  name: '小さな木になった',   requiredSteps: 100000 },
+    { level: 6,  emoji: '🌳', size: 0.9,  name: '蝶や鳥がやって来た', requiredSteps: 150000 },
+    { level: 7,  emoji: '🌳', size: 1.15, name: '大きな木になった',   requiredSteps: 220000 },
+    { level: 8,  emoji: '🌳', size: 1.15, name: '動物が住みはじめた', requiredSteps: 300000 },
+    { level: 9,  emoji: '🌳', size: 1.2,  name: '小さな森になった',   requiredSteps: 400000 },
+    { level: 10, emoji: '🌳', size: 1.2,  name: '豊かな自然の世界',   requiredSteps: 550000 },
+  ];
+  // level: この段階から現れる　x/y: 位置（%）　size: 大きさ（px）　move: 動き方
+  const DECORATIONS = [
+    { level: 4,  emoji: '🌼', x: 14, y: 14, size: 34, move: 'sway' },
+    { level: 4,  emoji: '🌷', x: 80, y: 13, size: 36, move: 'sway' },
+    { level: 4,  emoji: '🌼', x: 66, y: 10, size: 26, move: 'sway' },
+    { level: 6,  emoji: '🦋', x: 22, y: 50, size: 34, move: 'fly' },
+    { level: 6,  emoji: '🐦', x: 78, y: 58, size: 34, move: 'fly' },
+    { level: 8,  emoji: '🐇', x: 24, y: 9,  size: 42, move: 'hop' },
+    { level: 8,  emoji: '🐿️', x: 86, y: 18, size: 34, move: 'hop' },
+    { level: 9,  emoji: '🌲', x: 5,  y: 16, size: 90, move: 'sway' },
+    { level: 9,  emoji: '🌳', x: 94, y: 16, size: 80, move: 'sway' },
+    { level: 9,  emoji: '🍄', x: 38, y: 8,  size: 26, move: 'sway' },
+    { level: 10, emoji: '🦌', x: 72, y: 9,  size: 52, move: 'hop' },
+    { level: 10, emoji: '🐝', x: 60, y: 44, size: 24, move: 'fly' },
+    { level: 10, emoji: '🌈', x: 13, y: 62, size: 48, move: 'sway' },
+    { level: 10, emoji: '🌻', x: 30, y: 17, size: 30, move: 'sway' },
+  ];
 
   // ===== 保存データ =====
   // walks: [{ id, start, end, points: [[緯度, 経度, 時刻], ...], distance }]
@@ -275,8 +384,8 @@
       : '目標 ' + DAILY_GOAL_STEPS.toLocaleString() + ' 歩まで あと ' + (DAILY_GOAL_STEPS - steps).toLocaleString() + ' 歩';
 
     // 一覧
-    document.getElementById('walkList').innerHTML = list.map((w) =>
-      '<li><span>🚶 ' + clock(w.start) + ' 〜 ' + clock(w.end) + '</span><span>' +
+    document.getElementById('walkList').innerHTML = list.map((w, i) =>
+      '<li tabindex="0" role="button" data-index="' + i + '" aria-label="この散歩を再生"><span>▶ ' + clock(w.start) + ' 〜 ' + clock(w.end) + '</span><span>' +
       (w.distance / 1000).toFixed(2) + ' km・約' + Math.round(w.distance / STRIDE_M).toLocaleString() + '歩</span></li>'
     ).join('');
 
@@ -294,12 +403,63 @@
       L.polyline(latlngs, { color: pathColor(), weight: 6, opacity: 0.85, lineCap: 'round' }).addTo(dayLayer);
       bounds.push(...latlngs);
     }
-    if (bounds.length > 1 && !current) map.fitBounds(bounds, { padding: [40, 40] });
+    if (bounds.length > 1 && !current) map.fitBounds(bounds, { paddingTopLeft: [40, 80], paddingBottomRight: [40, 50] });
     if (!list.length && !current) {
       showNote(isToday ? '「歩きはじめる」を押すと、歩いた道がここに線で残ります。' : 'この日の記録はありません。');
     } else {
       showNote('');
     }
+  }
+
+  // これまでに歩いた合計歩数（めやす）
+  function totalSteps() {
+    const meters = walks.reduce((s, w) => s + w.distance, 0) + (current ? current.distance : 0);
+    return Math.round(meters / STRIDE_M);
+  }
+  function getStage(steps) {
+    let stage = STAGES[0];
+    for (const s of STAGES) if (steps >= s.requiredSteps) stage = s;
+    return stage;
+  }
+
+  function renderWorld() {
+    const steps = totalSteps();
+    const stage = getStage(steps);
+    const next = STAGES.find((s) => s.level === stage.level + 1);
+    // 同じ段階の中でも、歩くほど少しずつ大きくなる
+    const progress = next ? (steps - stage.requiredSteps) / (next.requiredSteps - stage.requiredSteps) : 1;
+    const plant = document.getElementById('plant');
+    plant.textContent = stage.emoji;
+    plant.style.transform = 'scale(' + (stage.size * (0.9 + 0.1 * progress)) + ')';
+    document.getElementById('stageName').textContent = 'Lv' + stage.level + '　' + stage.name;
+    document.getElementById('stageInfo').textContent = next
+      ? 'これまで ' + steps.toLocaleString() + ' 歩・次まで あと ' + (next.requiredSteps - steps).toLocaleString() + ' 歩'
+      : 'これまで ' + steps.toLocaleString() + ' 歩・最高の段階です';
+    document.getElementById('scene').innerHTML = DECORATIONS.filter((d) => stage.level >= d.level).map((d, i) =>
+      '<span class="deco ' + d.move + '" style="left:' + d.x + '%;bottom:' + d.y + '%;font-size:' + d.size +
+      'px;animation-delay:-' + ((i * 0.7) % 3).toFixed(1) + 's">' + d.emoji + '</span>'
+    ).join('');
+  }
+
+  // 世界の中に、ふわっと浮かんで消える文字を出す
+  function floatText(text, className, x, y, delay) {
+    const el = document.createElement('span');
+    el.className = 'float ' + className;
+    el.textContent = text;
+    el.style.left = x + '%';
+    el.style.bottom = y + '%';
+    el.style.animationDelay = (delay || 0) + 's';
+    document.getElementById('world').appendChild(el);
+    setTimeout(() => el.remove(), 1800 + (delay || 0) * 1000);
+  }
+
+  // 地図と世界の切りかえ
+  function showView(name) {
+    const world = name === 'world';
+    document.getElementById('world').hidden = !world;
+    document.getElementById('showWorld').setAttribute('aria-pressed', String(world));
+    document.getElementById('showMap').setAttribute('aria-pressed', String(!world));
+    if (world) renderWorld(); else map.invalidateSize();
   }
 
   // ===== 記録 =====
@@ -369,7 +529,11 @@
     clearInterval(tickTimer);
     if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
     if (liveLine) { map.removeLayer(liveLine); liveLine = null; }
+    let walkedSteps = 0;
+    let before = null;
     if (current) {
+      walkedSteps = Math.round(current.distance / STRIDE_M);
+      before = getStage(totalSteps() - walkedSteps);
       current.end = Date.now();
       if (current.points.length > 1) walks.push(current);
       current = null;
@@ -377,6 +541,20 @@
     setRecordingUI(false);
     save();
     renderDay();
+
+    // 歩いた分だけ世界が育つ様子を見せる
+    if (walkedSteps > 0) {
+      showView('world');
+      const after = getStage(totalSteps());
+      floatText('+' + walkedSteps.toLocaleString() + ' 歩', 'steps-pop', 62, 55);
+      if (after.level > before.level) {
+        const plant = document.getElementById('plant');
+        plant.classList.remove('levelup'); void plant.offsetWidth; plant.classList.add('levelup');
+        [[25, 45], [70, 50], [35, 70], [62, 75], [48, 85]].forEach(([x, y], i) => floatText(i % 2 ? '✨' : '⭐', 'sparkle', x, y, i * 0.08));
+        showNote('🎉 Lv' + after.level + '　' + after.name + '！');
+        setTimeout(() => showNote(''), 4000);
+      }
+    }
   }
 
   function setRecordingUI(recording) {
@@ -395,18 +573,22 @@
   // ===== 再生（人が線を引きながら歩く） =====
   let replayTimer = null;
 
-  function replayDay() {
-    const list = walksOfDay(viewDay);
-    if (!list.length) return;
+  // only に番号を渡すと、その1回の散歩だけを再生する
+  function replayDay(only) {
+    let list = walksOfDay(viewDay);
+    if (only !== undefined) list = [list[only]];
+    if (!list.length || !list[0]) return;
+    showView('map');
     stopReplay();
+    renderDay();
     const points = list.flatMap((w) => w.points.map((p) => [p[0], p[1]]));
     playRoute(points, list.map((w) => w.points.length));
   }
 
   // points を順番にたどって、線を伸ばしながら人を動かす
   function playRoute(points, segmentLengths) {
-    dayLayer.eachLayer((layer) => layer.setStyle && layer.setStyle({ color: oldColor(), opacity: 0.6 }));
-    map.fitBounds(points, { padding: [40, 40] });
+    dayLayer.eachLayer((layer) => layer.setStyle && layer.setStyle({ color: oldColor(), opacity: 0.35 }));
+    map.fitBounds(points, { paddingTopLeft: [40, 80], paddingBottomRight: [40, 50] });
     let line = L.polyline([points[0]], { color: pathColor(), weight: 6, lineCap: 'round' }).addTo(dayLayer);
     walker = L.marker(points[0], { icon: walkerIcon, zIndexOffset: 1000 }).addTo(dayLayer);
 
@@ -453,13 +635,26 @@
   }
 
   // ===== ボタン =====
+  document.getElementById('showMap').addEventListener('click', () => showView('map'));
+  document.getElementById('showWorld').addEventListener('click', () => showView('world'));
   document.getElementById('mainButton').addEventListener('click', () => {
     stopReplay();
+    showView('map');
     if (current) stopWalk(); else startWalk();
   });
   document.getElementById('replayButton').addEventListener('click', () => {
     if (replayTimer) { stopReplay(); renderDay(); } else { replayDay(); }
   });
+  // 一覧の散歩を押すと、その散歩だけ再生
+  function onWalkPick(event) {
+    const item = event.target.closest('li[data-index]');
+    if (!item || current) return;
+    if (event.type === 'keydown' && event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    replayDay(Number(item.dataset.index));
+  }
+  document.getElementById('walkList').addEventListener('click', onWalkPick);
+  document.getElementById('walkList').addEventListener('keydown', onWalkPick);
   document.getElementById('prevDay').addEventListener('click', () => {
     stopReplay(); viewDay -= 86400000; viewDay = startOfDay(viewDay + 3600000); renderDay();
   });
