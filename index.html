@@ -71,8 +71,9 @@
   /* ===== 地図 ===== */
   .map-wrap { flex: 1; min-height: 300px; position: relative; }
   #map { position: absolute; inset: 0; background: var(--track); }
-  .walker-icon { font-size: 34px; line-height: 1; text-align: center; transition: transform 0.2s; }
-  .walker-icon.east { transform: scaleX(-1); }   /* 東（右）に進むときは右を向く */
+  .walker-icon { width: 56px; height: 82px; transition: transform 0.2s; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3)); }
+  .walker-icon img { width: 100%; height: 100%; display: block; }
+  .walker-icon.west { transform: scaleX(-1); }   /* 西（左）に進むときは左を向く */
   .here-dot {
     width: 16px; height: 16px; border-radius: 50%;
     background: #2f7de1; border: 3px solid #fff;
@@ -390,7 +391,7 @@
 
   let dayLayer = L.layerGroup().addTo(map);   // 表示中の日の線
   let liveLine = null;                        // 記録中の線
-  const walkerIcon = L.divIcon({ className: '', html: '<div class="walker-icon" id="walkerEl">🚶</div>', iconSize: [36, 36], iconAnchor: [18, 32] });
+  const walkerIcon = L.divIcon({ className: '', html: '<div class="walker-icon" id="walkerEl"><img src="walker.png" alt="歩く人"></div>', iconSize: [56, 82], iconAnchor: [28, 80] });
   let walker = null;                          // 歩く人のマーカー
   const hereIcon = L.divIcon({ className: '', html: '<div class="here-dot"></div>', iconSize: [16, 16], iconAnchor: [8, 8] });
   let hereMarker = null;
@@ -404,7 +405,7 @@
   // 歩く人の向きを、進む方向に合わせる
   function faceWalker(from, to) {
     const el = document.getElementById('walkerEl');
-    if (el) el.classList.toggle('east', to[1] > from[1]);
+    if (el) el.classList.toggle('west', to[1] < from[1]);
   }
 
   // ===== 表示中の日の散歩 =====
