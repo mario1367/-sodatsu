@@ -250,7 +250,7 @@
       <button class="sub-button" id="replayButton" type="button">▶ この日の道を再生</button>
     </div>
     <ul class="walks" id="walkList"></ul>
-    <p class="hint" id="hint">歩いている間は、このページを開いたまま画面をつけておいてください。画面を消すと記録が止まります。</p>
+    <p class="hint" id="hint">歩いている間は、このページを開いたまま画面をつけておくのがいちばん確実です。ほかのアプリを使って記録が止まっても、このページに戻れば続きから記録します。</p>
   </section>
 </div>
 
@@ -261,6 +261,7 @@
   const MIN_MOVE_M = 4;          // これより小さい動きはGPSのブレとして無視
   const MAX_ACCURACY_M = 40;     // 位置の精度がこれより悪いときは使わない
   const REPLAY_ZOOM = 19;        // 再生するときの地図の近さ（大きいほど近い）
+  const RESUME_LIMIT_MS = 3 * 60 * 60 * 1000; // 3時間以内に戻ってきたら、記録の続きから
   const MAX_WALK_SPEED = 3.0;    // 秒速3m（時速約11km）より速い移動は、電車や車として数えない
   const SAVE_KEY = 'aruku-data';
 
@@ -309,7 +310,13 @@
     try {
       const data = JSON.parse(localStorage.getItem(SAVE_KEY) || '{}');
       walks = (data.walks || []).map(cleanWalk);
-      // アプリが途中で閉じられた散歩は、そこまでの分を保存しておく
+      // 記録中にページが閉じられた散歩：少し前までなら続きから記録する
+      if (data.current) {
+        const pts = data.current.points;
+        const lastTime = pts.length ? pts[pts.length - 1][2] : data.current.start;
+        if (Date.now() - lastTime < RESUME_LIMIT_MS) { current = cleanWalk(data.current); return; }
+      }
+      // それより古いものは、そこまでの分を保存しておく
       if (data.current && data.current.points.length > 1) {
         data.current.end = data.current.points[data.current.points.length - 1][2];
         walks.push(cleanWalk(data.current));
@@ -522,6 +529,13 @@
   let wakeLock = null;
   let tickTimer = null;
 
+  function watchPosition() {
+    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+    watchId = navigator.geolocation.watchPosition(onPosition, onPositionError, {
+      enableHighAccuracy: true, maximumAge: 0, timeout: 20000,
+    });
+  }
+
   async function keepScreenOn() {
     try { wakeLock = await navigator.wakeLock.request('screen'); } catch (e) { wakeLock = null; }
   }
@@ -533,11 +547,14 @@
     }
     viewDay = startOfDay(Date.now());
     current = { id: Date.now(), start: Date.now(), end: null, points: [], distance: 0 };
-    liveLine = L.polyline([], { color: pathColor(), weight: 6, opacity: 0.95, lineCap: 'round' }).addTo(map);
     showNote('位置を探しています…');
-    watchId = navigator.geolocation.watchPosition(onPosition, onPositionError, {
-      enableHighAccuracy: true, maximumAge: 0, timeout: 20000,
-    });
+    beginRecording();
+  }
+
+  // 位置の受け取りを始める（新しく歩きはじめるときと、続きから記録するときに使う）
+  function beginRecording() {
+    liveLine = L.polyline(segmentsOf(current), { color: pathColor(), weight: 6, opacity: 0.95, lineCap: 'round' }).addTo(map);
+    watchPosition();
     keepScreenOn();
     tickTimer = setInterval(renderDay, 15000); // 時間の表示を少しずつ進める
     setRecordingUI(true);
@@ -630,9 +647,10 @@
     document.getElementById('prevDay').disabled = recording;
   }
 
-  // 画面に戻ってきたら、画面をつけたままにする設定をやり直す
+  // 画面に戻ってきたら、画面をつけたままにする設定と、位置の受け取りをやり直す
+  // （ほかのアプリを使っている間に止まっていても、ここから続きを記録する）
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && current) keepScreenOn();
+    if (document.visibilityState === 'visible' && current) { keepScreenOn(); watchPosition(); }
   });
 
   // ===== 再生（人が線を引きながら歩く） =====
@@ -765,7 +783,12 @@
   // ===== はじめに =====
   load();
   save();
+  if (current) {
+    // 記録中にページが閉じられていたので、続きから記録する
+    beginRecording();
+  }
   renderDay();
+  if (current) { showNote('記録の続きから再開しました'); setTimeout(() => showNote(''), 4000); }
   // 今いる場所を地図の真ん中にする（記録がない日だけ）
   if (!walksOfDay(viewDay).length && 'geolocation' in navigator) {
     navigator.geolocation.getCurrentPosition((pos) => {
