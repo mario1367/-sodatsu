@@ -583,8 +583,28 @@
     canvas.width = Math.round(box.width * dpr); canvas.height = Math.round(box.height * dpr);
     const ctx = canvas.getContext('2d');
     const [iw, ih] = PICTURE_SIZE;
-    const scale = Math.min(canvas.width / iw, canvas.height / ih);
-    const dx = (canvas.width - iw * scale) / 2, dy = (canvas.height - ih * scale) / 2;
+    // 見えている所だけを大きく映す。レベルが上がるほど引いていき、Lv20 で全体が見える
+    let x0 = 0, y0 = 0, x1 = iw, y1 = ih;
+    if (level < 20) {
+      x0 = iw; y0 = ih; x1 = 0; y1 = 0;
+      for (let lv = 11; lv <= level; lv++) {
+        for (const [x, y, w, h] of PICTURE_REVEALS[lv] || []) {
+          x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x + w); y1 = Math.max(y1, y + h);
+        }
+      }
+      const pad = 0.12 * Math.max(x1 - x0, y1 - y0);
+      x0 -= pad; y0 -= pad; x1 += pad; y1 += pad;
+      // 画面の縦横の比に合わせて広げる（絵の外にははみ出さない）
+      const aspect = canvas.width / canvas.height;
+      let w = x1 - x0, h = y1 - y0;
+      if (w / h < aspect) { const nw = Math.min(iw, h * aspect); x0 -= (nw - w) / 2; w = nw; }
+      else { const nh = Math.min(ih, w / aspect); y0 -= (nh - h) / 2; h = nh; }
+      x0 = Math.max(0, Math.min(x0, iw - w)); y0 = Math.max(0, Math.min(y0, ih - h));
+      x1 = x0 + w; y1 = y0 + h;
+    }
+    const scale = Math.min(canvas.width / (x1 - x0), canvas.height / (y1 - y0));
+    const dx = (canvas.width - (x1 - x0) * scale) / 2 - x0 * scale;
+    const dy = (canvas.height - (y1 - y0) * scale) / 2 - y0 * scale;
     ctx.globalAlpha = level >= 20 ? 1 : 0.13;
     ctx.drawImage(pictureImage, dx, dy, iw * scale, ih * scale);
     ctx.globalAlpha = 1;
