@@ -129,6 +129,11 @@
   .blossom { position: absolute; line-height: 1; translate: -50% -50%; pointer-events: none; }
   .plant.levelup { animation: levelup 0.9s cubic-bezier(.3,1.6,.5,1), sway 4s ease-in-out infinite alternate; }
   @keyframes levelup { 0% { scale: 0.3; opacity: 0.2; } 60% { scale: 1.18; opacity: 1; } 100% { scale: 1; } }
+  /* Lv11〜：大きな絵（見えていない所はうっすら） */
+  .world.picture-mode { background: #fff; }
+  .world.picture-mode .ground, .world.picture-mode .plant, .world.picture-mode .scene { display: none; }
+  .picture { position: absolute; left: 0; right: 0; top: 120px; bottom: 0; width: 100%; height: calc(100% - 120px); }
+  .world.picture-mode .world-title { z-index: 2; }
   .ground {
     width: 100%; height: 22%; min-height: 60px; background: var(--soil);
     border-radius: 50% 50% 0 0 / 40px 40px 0 0; box-shadow: inset 0 -18px 0 var(--soil-dark);
@@ -239,6 +244,7 @@
       <div class="scene" id="scene" aria-hidden="true"></div>
       <div class="plant" id="plant" aria-hidden="true">🫘</div>
       <div class="ground"></div>
+      <canvas class="picture" id="picture" aria-hidden="true" hidden></canvas>
     </section>
     <p class="map-note" id="mapNote" hidden></p>
   </div>
@@ -292,6 +298,17 @@
     { level: 8,  emoji: '🌳', size: 1.15, name: '動物が住みはじめた', requiredSteps: 300000 },
     { level: 9,  emoji: '🌳', size: 1.2,  name: '小さな森になった',   requiredSteps: 400000 },
     { level: 10, emoji: '🌳', size: 1.55, name: '花いっぱいの森',     requiredSteps: 550000 },
+    // Lv11〜20：大きな絵の世界が、少しずつ見えてくる
+    { level: 11, picture: true, name: 'キノコの丘が見えた',     requiredSteps: 650000 },
+    { level: 12, picture: true, name: 'ネコとヘルメットの子',   requiredSteps: 750000 },
+    { level: 13, picture: true, name: 'カタツムリがやって来た', requiredSteps: 850000 },
+    { level: 14, picture: true, name: 'くだものの島',           requiredSteps: 950000 },
+    { level: 15, picture: true, name: '空飛ぶネコと花',         requiredSteps: 1050000 },
+    { level: 16, picture: true, name: 'ちょうちょが舞う',       requiredSteps: 1150000 },
+    { level: 17, picture: true, name: '船とワニ',               requiredSteps: 1250000 },
+    { level: 18, picture: true, name: 'イルカが顔を出した',     requiredSteps: 1350000 },
+    { level: 19, picture: true, name: 'イルカのジャンプ',       requiredSteps: 1450000 },
+    { level: 20, picture: true, name: 'ふしぎな塔の世界',       requiredSteps: 1600000 },
   ];
   // level: この段階から現れる　x/y: 位置（%）　size: 大きさ（px）　move: 動き方
   const DECORATIONS = [
@@ -309,6 +326,20 @@
     { level: 10, emoji: '🐝', x: 60, y: 44, size: 24, move: 'fly' },
     { level: 10, emoji: '🌻', x: 30, y: 17, size: 30, move: 'sway' },
   ];
+  // Lv11〜19 で見えてくる場所（大きな絵の中の位置 x, y, 幅, 高さ。絵は 678×820）。Lv20 で全部見える
+  const PICTURE_SIZE = [678, 820];
+  const PICTURE_REVEALS = {
+    11: [[560, 330, 118, 280]],                   // キノコと花
+    12: [[410, 380, 160, 110]],                   // ネコとヘルメットの子
+    13: [[240, 650, 120, 100]],                   // カタツムリに乗った子
+    14: [[215, 470, 260, 190]],                   // くだものの島
+    15: [[560, 0, 118, 90], [270, 0, 120, 130]],  // 空飛ぶネコ、電球の花
+    16: [[180, 40, 90, 100], [270, 210, 100, 90]], // ちょうちょ
+    17: [[340, 590, 338, 230]],                   // 船とワニ
+    18: [[0, 570, 250, 250]],                     // イルカと帽子の人
+    19: [[0, 120, 330, 450]],                     // 恐竜とジャンプするイルカ
+  };
+
   // 送ってもらった絵のキャラクター（img: chars/ の画像、size: 高さpx）。Lv3 から少しずつ増える
   DECORATIONS.push(
     { level: 3,  img: 'bf_yellow', x: 68, y: 46, size: 26, move: 'fly' },
@@ -540,10 +571,54 @@
     return stage;
   }
 
+  // 大きな絵を描く。見えた場所ははっきり、まだの所はうっすら
+  const pictureImage = new Image();
+  pictureImage.src = 'chars/world20.jpg';
+  pictureImage.onload = () => { if (!document.getElementById('world').hidden) renderWorld(); };
+  function drawPicture(level) {
+    const canvas = document.getElementById('picture');
+    const box = canvas.getBoundingClientRect();
+    if (!pictureImage.complete || !box.width) return;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(box.width * dpr); canvas.height = Math.round(box.height * dpr);
+    const ctx = canvas.getContext('2d');
+    const [iw, ih] = PICTURE_SIZE;
+    const scale = Math.min(canvas.width / iw, canvas.height / ih);
+    const dx = (canvas.width - iw * scale) / 2, dy = (canvas.height - ih * scale) / 2;
+    ctx.globalAlpha = level >= 20 ? 1 : 0.13;
+    ctx.drawImage(pictureImage, dx, dy, iw * scale, ih * scale);
+    ctx.globalAlpha = 1;
+    if (level >= 20) return;
+    // 見えた場所だけ、はっきり描く（ふちはぼかす）
+    const mask = document.createElement('canvas');
+    mask.width = canvas.width; mask.height = canvas.height;
+    const m = mask.getContext('2d');
+    m.filter = 'blur(' + Math.round(10 * dpr) + 'px)';
+    m.fillStyle = '#000';
+    for (let lv = 11; lv <= level; lv++) {
+      for (const [x, y, w, h] of PICTURE_REVEALS[lv] || []) m.fillRect(dx + x * scale, dy + y * scale, w * scale, h * scale);
+    }
+    m.filter = 'none';
+    m.globalCompositeOperation = 'source-in';
+    m.drawImage(pictureImage, dx, dy, iw * scale, ih * scale);
+    ctx.drawImage(mask, 0, 0);
+  }
+
   function renderWorld() {
     const steps = totalSteps();
     const stage = getStage(steps);
     const next = STAGES.find((s) => s.level === stage.level + 1);
+    const pictureMode = !!stage.picture;
+    document.getElementById('world').classList.toggle('picture-mode', pictureMode);
+    document.getElementById('picture').hidden = !pictureMode;
+    if (pictureMode) {
+      document.getElementById('stageName').textContent = 'Lv' + stage.level + '　' + stage.name;
+      document.getElementById('stageInfo').textContent = next
+        ? 'これまで ' + steps.toLocaleString() + ' 歩・次まで あと ' + (next.requiredSteps - steps).toLocaleString() + ' 歩'
+        : 'これまで ' + steps.toLocaleString() + ' 歩・最高の段階です';
+      requestAnimationFrame(() => drawPicture(stage.level));
+      return;
+    }
     // 同じ段階の中でも、歩くほど少しずつ大きくなる
     const progress = next ? (steps - stage.requiredSteps) / (next.requiredSteps - stage.requiredSteps) : 1;
     const plant = document.getElementById('plant');
