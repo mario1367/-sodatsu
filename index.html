@@ -146,6 +146,10 @@
   .dq-next { position: absolute; right: 16px; bottom: 6px; font-size: 0.9rem; opacity: 0; }
   .dq-box.ready .dq-next { opacity: 1; animation: dq-blink 0.8s steps(1) infinite; }
   @keyframes dq-blink { 50% { opacity: 0; } }
+  .form-portrait { position: absolute; left: 0; right: 0; bottom: 150px; z-index: 18; display: flex; justify-content: center; pointer-events: none; }
+  .form-portrait img { height: 180px; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.35)); }
+  .form-portrait.pop img { animation: portrait-pop 0.9s cubic-bezier(.3,1.6,.5,1); }
+  @keyframes portrait-pop { 0% { transform: scale(0.2); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
   .dq-flash { position: absolute; inset: 0; z-index: 19; background: #fff; opacity: 0; pointer-events: none; }
   .dq-flash.go { animation: dq-flash 1.3s ease-in-out forwards; }
   @keyframes dq-flash { 0% { opacity: 0; } 35% { opacity: 1; } 55% { opacity: 1; } 100% { opacity: 0; } }
@@ -261,6 +265,7 @@
       <div class="ground"></div>
       <canvas class="picture" id="picture" aria-hidden="true" hidden></canvas>
       <div class="dq-flash" id="dqFlash" hidden></div>
+      <div class="form-portrait" id="formPortrait" aria-hidden="true" hidden></div>
       <div class="dq-box" id="dqBox" role="status" aria-live="polite" hidden><p id="dqText"></p><span class="dq-next" aria-hidden="true">▼</span></div>
     </section>
     <p class="map-note" id="mapNote" hidden></p>
@@ -406,14 +411,16 @@
   // 4つ目が 1 の点は「乗り物で移動してきた点」。その前の点とは線をつながず、距離にも入れない
   let walks = [];
   let current = null;            // 記録中の散歩（記録していないときはnull）
+  let form = 'normal';           // いまのすがた：'normal'（ふつう）/ 'god'（神）/ 'zou'（象人間）
 
   function save() {
-    try { localStorage.setItem(SAVE_KEY, JSON.stringify({ walks, current })); } catch (e) {}
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify({ walks, current, form })); } catch (e) {}
   }
   function load() {
     try {
       const data = JSON.parse(localStorage.getItem(SAVE_KEY) || '{}');
       walks = (data.walks || []).map(cleanWalk);
+      form = data.form || 'normal';
       // 記録中にページが閉じられた散歩：少し前までなら続きから記録する
       if (data.current) {
         const pts = data.current.points;
@@ -509,7 +516,17 @@
 
   let dayLayer = L.layerGroup().addTo(map);   // 表示中の日の線
   let liveLine = null;                        // 記録中の線
-  const walkerIcon = L.divIcon({ className: '', html: '<div class="walker-icon" id="walkerEl"><img src="walker.png" alt="歩く人"></div>', iconSize: [38, 55], iconAnchor: [19, 53] });
+  // 歩く人の絵（すがたによって変わる）
+  const WALKER_LOOKS = {
+    normal: { src: 'walker.png',     w: 38, h: 55, alt: '歩く人' },
+    god:    { src: 'chars/god.png',  w: 46, h: 64, alt: '雲に乗った神さま' },
+    zou:    { src: 'chars/zou.png',  w: 56, h: 52, alt: '象人間' },
+  };
+  function walkerIcon() {
+    const look = WALKER_LOOKS[form] || WALKER_LOOKS.normal;
+    return L.divIcon({ className: '', iconSize: [look.w, look.h], iconAnchor: [look.w / 2, look.h - 2],
+      html: '<div class="walker-icon" id="walkerEl" style="width:' + look.w + 'px;height:' + look.h + 'px"><img src="' + look.src + '" alt="' + look.alt + '"></div>' });
+  }
   let walker = null;                          // 歩く人のマーカー
   const hereIcon = L.divIcon({ className: '', html: '<div class="here-dot"></div>', iconSize: [16, 16], iconAnchor: [8, 8] });
   let hereMarker = null;
@@ -803,16 +820,90 @@
       floatText('+' + walkedSteps.toLocaleString() + ' 歩', 'steps-pop', 62, 55);
       if (after.level > before.level) {
         if (before.level < 11 && after.level >= 11) {
-          enterNewWorld(after);
+          enterNewWorld(after, checkForm);
         } else {
           const plant = document.getElementById('plant');
           plant.classList.remove('levelup'); void plant.offsetWidth; plant.classList.add('levelup');
           [[25, 45], [70, 50], [35, 70], [62, 75], [48, 85]].forEach(([x, y], i) => floatText(i % 2 ? '✨' : '⭐', 'sparkle', x, y, i * 0.08));
           playFanfare();
-          showMessages(['レベルが あがった！', 'Lv' + after.level + '「' + after.name + '」']);
+          showMessages(['レベルが あがった！', 'Lv' + after.level + '「' + after.name + '」'], checkForm);
         }
+        return;
       }
     }
+    checkForm();
+  }
+
+  // ===== すがたが変わる（神 / 象人間） =====
+  const GOD_DAYS = 7;          // 7日つづけて目標を達成すると、神になる
+  const LAZY_DAYS = 3;         // 3日つづけてほとんど歩かないと、象人間になる
+  const LAZY_STEPS = 1000;     // 1日これより少ないと「ほとんど歩いていない」
+  function stepsOfDay(day) {
+    const meters = walks.filter((w) => startOfDay(w.start) === day).reduce((s, w) => s + w.distance, 0)
+      + (current && startOfDay(current.start) === day ? current.distance : 0);
+    return Math.round(meters / STRIDE_M);
+  }
+  function judgeForm() {
+    if (!walks.length) return 'normal';
+    const today = startOfDay(Date.now());
+    const dayBefore = (day, n) => startOfDay(day - n * 86400000 + 3600000 * 2);
+    // 神：今日（または昨日）までの連続達成日数
+    let streak = 0;
+    let day = stepsOfDay(today) >= DAILY_GOAL_STEPS ? today : dayBefore(today, 1);
+    while (stepsOfDay(day) >= DAILY_GOAL_STEPS) { streak++; day = dayBefore(day, 1); }
+    if (streak >= GOD_DAYS) return 'god';
+    // 象人間：使いはじめて3日以上たっていて、今日をふくむ3日間ずっとほとんど歩いていない
+    const firstDay = startOfDay(Math.min(...walks.map((w) => w.start)));
+    if (today - firstDay >= LAZY_DAYS * 86400000 - 3600000 * 2) {
+      let lazy = true;
+      for (let n = 0; n < LAZY_DAYS; n++) if (stepsOfDay(dayBefore(today, n)) >= LAZY_STEPS) lazy = false;
+      if (lazy) return 'zou';
+    }
+    return 'normal';
+  }
+  const FORM_MESSAGES = {
+    god: ['なんと！', 'あなたは すごいので 神に なりました！', '（' + GOD_DAYS + '日 つづけて ' + DAILY_GOAL_STEPS.toLocaleString() + '歩 あるいた）'],
+    zou: ['あれれ……？', 'なまけていたので 象人間に なってしまった！', '歩けば もとの すがたに もどれるぞ。'],
+    fromZou: ['のろいが とけた！', 'もとの すがたに もどった！'],
+    fromGod: ['神の ちからが きえてしまった……', 'また ' + GOD_DAYS + '日 つづけて 歩けば 神に もどれるぞ。'],
+  };
+  function checkForm() {
+    const next = judgeForm();
+    if (next === form) return;
+    const before = form;
+    form = next;
+    save();
+    showView('world');
+    const lines = next === 'god' ? FORM_MESSAGES.god
+      : next === 'zou' ? FORM_MESSAGES.zou
+      : before === 'zou' ? FORM_MESSAGES.fromZou : FORM_MESSAGES.fromGod;
+    if (next === 'zou') playSadTune(); else playFanfare(next === 'god');
+    showFormPortrait(next);
+    showMessages(lines, () => hideFormPortrait());
+  }
+  // 変身したすがたを、メッセージの上に大きく出す
+  function showFormPortrait(name) {
+    const look = WALKER_LOOKS[name] || WALKER_LOOKS.normal;
+    const el = document.getElementById('formPortrait');
+    el.innerHTML = '<img src="' + look.src + '" alt="' + look.alt + '">';
+    el.hidden = false;
+    el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+  }
+  function hideFormPortrait() { document.getElementById('formPortrait').hidden = true; }
+  // 象人間になったときの、しょんぼりした音
+  function playSadTune() {
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      const ac = new AC();
+      [392, 370, 349, 262].forEach((freq, i) => {
+        const osc = ac.createOscillator(), gain = ac.createGain();
+        osc.type = 'square'; osc.frequency.value = freq;
+        const t = ac.currentTime + i * 0.28, len = i === 3 ? 0.7 : 0.25;
+        gain.gain.setValueAtTime(0.05, t); gain.gain.exponentialRampToValueAtTime(0.001, t + len);
+        osc.connect(gain).connect(ac.destination); osc.start(t); osc.stop(t + len);
+      });
+    } catch (e) {}
   }
 
   // ===== ドラクエ風のメッセージ =====
@@ -867,7 +958,7 @@
   }
 
   // Lv10 → Lv11：森の向こうに、新しい世界が見つかる
-  function enterNewWorld(stage) {
+  function enterNewWorld(stage, done) {
     renderWorld(STAGES.find((s) => s.level === 10)); // まずは花の森のまま
     playFanfare(true);
     showMessages([
@@ -881,7 +972,7 @@
       setTimeout(() => renderWorld(), 450); // 真っ白になったところで切りかえる
       setTimeout(() => {
         flash.hidden = true;
-        showMessages(['Lv' + stage.level + '「' + stage.name + '」！', 'ぼうけんは まだまだ つづく！']);
+        showMessages(['Lv' + stage.level + '「' + stage.name + '」！', 'ぼうけんは まだまだ つづく！'], done);
       }, 1300);
     });
   }
@@ -928,7 +1019,7 @@
     // 近くに寄って、人を追いかけながら再生する
     map.setView(points[0], REPLAY_ZOOM, { animate: false });
     let line = L.polyline([points[0]], { color: pathColor(), weight: 6, lineCap: 'round' }).addTo(dayLayer);
-    walker = L.marker(points[0], { icon: walkerIcon, zIndexOffset: 1000 }).addTo(dayLayer);
+    walker = L.marker(points[0], { icon: walkerIcon(), zIndexOffset: 1000 }).addTo(dayLayer);
 
     // breaks に入っている番号の点では、前の点と線をつなげない
 
@@ -1036,6 +1127,7 @@
   }
   renderDay();
   if (current) { showNote('記録の続きから再開しました'); setTimeout(() => showNote(''), 4000); }
+  else checkForm(); // しばらく歩いていなかったら、ここで象人間になる
   // 今いる場所を地図の真ん中にする（記録がない日だけ）
   if (!walksOfDay(viewDay).length && 'geolocation' in navigator) {
     navigator.geolocation.getCurrentPosition((pos) => {
