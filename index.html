@@ -126,6 +126,7 @@
     animation: sway 4s ease-in-out infinite alternate;
   }
   @keyframes sway { from { rotate: -2deg; } to { rotate: 2deg; } }
+  .blossom { position: absolute; line-height: 1; translate: -50% -50%; pointer-events: none; }
   .plant.levelup { animation: levelup 0.9s cubic-bezier(.3,1.6,.5,1), sway 4s ease-in-out infinite alternate; }
   @keyframes levelup { 0% { scale: 0.3; opacity: 0.2; } 60% { scale: 1.18; opacity: 1; } 100% { scale: 1; } }
   .ground {
@@ -285,7 +286,7 @@
     { level: 7,  emoji: '🌳', size: 1.15, name: '大きな木になった',   requiredSteps: 220000 },
     { level: 8,  emoji: '🌳', size: 1.15, name: '動物が住みはじめた', requiredSteps: 300000 },
     { level: 9,  emoji: '🌳', size: 1.2,  name: '小さな森になった',   requiredSteps: 400000 },
-    { level: 10, emoji: '🌳', size: 1.2,  name: '花いっぱいの森',     requiredSteps: 550000 },
+    { level: 10, emoji: '🌳', size: 1.55, name: '花いっぱいの森',     requiredSteps: 550000 },
   ];
   // level: この段階から現れる　x/y: 位置（%）　size: 大きさ（px）　move: 動き方
   const DECORATIONS = [
@@ -301,11 +302,21 @@
     { level: 9,  emoji: '🍄', x: 38, y: 8,  size: 26, move: 'sway' },
     { level: 10, emoji: '🦌', x: 72, y: 9,  size: 52, move: 'hop' },
     { level: 10, emoji: '🐝', x: 60, y: 44, size: 24, move: 'fly' },
-    { level: 10, emoji: '🌈', x: 13, y: 62, size: 48, move: 'sway' },
     { level: 10, emoji: '🌻', x: 30, y: 17, size: 30, move: 'sway' },
   ];
   // Lv10：地面いっぱいに花が咲き、花びらが舞う
   const FLOWERS = ['🌸', '🌷', '🌺', '🌼', '🌹', '🪻', '💐', '🌸'];
+  // 木に咲く花（x/y: 木の絵の中の位置%、最後の数字: 大きさ）
+  const TREE_BLOSSOMS = [];
+  for (let gy = 0; gy < 6; gy++) {
+    for (let gx = 0; gx < 8; gx++) {
+      const x = 10 + gx * 11.5 + (gy % 2) * 5, y = 12 + gy * 10;
+      // 丸い葉っぱの形の中だけに咲かせる
+      if (((x - 50) / 44) ** 2 + ((y - 40) / 32) ** 2 > 1) continue;
+      const i = gy * 8 + gx;
+      TREE_BLOSSOMS.push([x, y, ['🌸', '🌸', '🌺', '🌸', '💮'][i % 5], 0.075 + (i % 3) * 0.012]);
+    }
+  }
   // 地面を4段に分けて、すき間なく花を並べる
   for (let row = 0; row < 4; row++) {
     for (let col = 0; col < 16; col++) {
@@ -515,7 +526,9 @@
     // 同じ段階の中でも、歩くほど少しずつ大きくなる
     const progress = next ? (steps - stage.requiredSteps) / (next.requiredSteps - stage.requiredSteps) : 1;
     const plant = document.getElementById('plant');
-    plant.textContent = stage.emoji;
+    // Lv10 は木にも花が咲く（木の大きさに合わせて、花も大きくなる）
+    plant.innerHTML = stage.emoji + (stage.level >= 10 ? TREE_BLOSSOMS.map(([x, y, e, sz]) =>
+      '<span class="blossom" style="left:' + x + '%;top:' + y + '%;font-size:' + sz + 'em">' + e + '</span>').join('') : '');
     plant.style.transform = 'scale(' + (stage.size * (0.9 + 0.1 * progress)) + ')';
     document.getElementById('stageName').textContent = 'Lv' + stage.level + '　' + stage.name;
     document.getElementById('stageInfo').textContent = next
