@@ -61,7 +61,7 @@
     font-weight: 500;
   }
   .app {
-    height: 100%;
+    min-height: 100%;
     max-width: 560px;
     margin: 0 auto;
     display: flex;
@@ -69,9 +69,9 @@
   }
 
   /* ===== 地図 ===== */
-  .map-wrap { flex: 1; min-height: 300px; position: relative; }
+  .map-wrap { flex: none; height: 62vh; height: 62svh; min-height: 340px; position: relative; } /* 地図を大きく。下のパネルはスクロールで見る */
   #map { position: absolute; inset: 0; background: var(--track); }
-  .walker-icon { width: 46px; height: 67px; transition: transform 0.2s; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3)); }
+  .walker-icon { width: 38px; height: 55px; transition: transform 0.2s; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3)); }
   .walker-icon img { width: 100%; height: 100%; display: block; transform-origin: 50% 100%; animation: step 0.5s ease-in-out infinite; }
   /* 一歩ごとに、ぴょこっと上がって左右に少しかたむく */
   @keyframes step {
@@ -260,7 +260,7 @@
   const STRIDE_M = 0.7;          // 1歩の長さ（メートル）。歩数はこれで距離から計算した「めやす」
   const MIN_MOVE_M = 4;          // これより小さい動きはGPSのブレとして無視
   const MAX_ACCURACY_M = 40;     // 位置の精度がこれより悪いときは使わない
-  const REPLAY_ZOOM = 18;        // 再生するときの地図の近さ（大きいほど近い）
+  const REPLAY_ZOOM = 19;        // 再生するときの地図の近さ（大きいほど近い）
   const MAX_WALK_SPEED = 3.0;    // 秒速3m（時速約11km）より速い移動は、電車や車として数えない
   const SAVE_KEY = 'aruku-data';
 
@@ -398,7 +398,7 @@
 
   let dayLayer = L.layerGroup().addTo(map);   // 表示中の日の線
   let liveLine = null;                        // 記録中の線
-  const walkerIcon = L.divIcon({ className: '', html: '<div class="walker-icon" id="walkerEl"><img src="walker.png" alt="歩く人"></div>', iconSize: [46, 67], iconAnchor: [23, 65] });
+  const walkerIcon = L.divIcon({ className: '', html: '<div class="walker-icon" id="walkerEl"><img src="walker.png" alt="歩く人"></div>', iconSize: [38, 55], iconAnchor: [19, 53] });
   let walker = null;                          // 歩く人のマーカー
   const hereIcon = L.divIcon({ className: '', html: '<div class="here-dot"></div>', iconSize: [16, 16], iconAnchor: [8, 8] });
   let hereMarker = null;
