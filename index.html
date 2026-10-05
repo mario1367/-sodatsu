@@ -691,7 +691,11 @@
     // 日付ボタン
     document.getElementById('nextDay').disabled = isToday;
     document.getElementById('mainButton').hidden = !isToday;
-    document.getElementById('replayButton').disabled = list.length === 0 || current !== null;
+    const replayButton = document.getElementById('replayButton');
+    replayButton.disabled = list.length === 0 || current !== null;
+    // 押せないときは、その理由をボタンに書く
+    if (!replayTimer) replayButton.textContent = current !== null ? '記録中は再生できません'
+      : list.length === 0 ? 'この日の記録はまだありません' : '▶ この日の道を再生';
     document.getElementById('hint').hidden = !isToday;
 
     // 地図に線を引く
