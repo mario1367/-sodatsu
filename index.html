@@ -252,7 +252,7 @@
   const STRIDE_M = 0.7;          // 1歩の長さ（メートル）。歩数はこれで距離から計算した「めやす」
   const MIN_MOVE_M = 4;          // これより小さい動きはGPSのブレとして無視
   const MAX_ACCURACY_M = 40;     // 位置の精度がこれより悪いときは使わない
-  const REPLAY_ZOOM = 17;        // 再生するときの地図の近さ（大きいほど近い）
+  const REPLAY_ZOOM = 18;        // 再生するときの地図の近さ（大きいほど近い）
   const MAX_WALK_SPEED = 3.0;    // 秒速3m（時速約11km）より速い移動は、電車や車として数えない
   const SAVE_KEY = 'aruku-data';
 
@@ -714,15 +714,9 @@
     replayTimer = requestAnimationFrame(frame);
   }
 
-  // 人が画面の端に近づいたら、地図を動かして真ん中に戻す
-  let lastPan = 0;
+  // 人がいつも地図の真ん中にいるように、地図を少しずつ動かす
   function followWalker() {
-    if (!walker || performance.now() - lastPan < 700) return;
-    const at = walker.getLatLng();
-    if (!map.getBounds().pad(-0.3).contains(at)) {
-      lastPan = performance.now();
-      map.panTo(at, { animate: true, duration: 0.6 });
-    }
+    if (walker) map.panTo(walker.getLatLng(), { animate: false });
   }
 
   function stopReplay() {
