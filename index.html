@@ -137,6 +137,13 @@
   .deco.sway { animation: deco-sway 3.5s ease-in-out infinite alternate; }
   .deco.fly  { animation: deco-fly 3s ease-in-out infinite alternate; }
   .deco.hop  { animation: deco-hop 2.4s ease-in-out infinite; }
+  .deco.petal { animation: deco-petal 7s linear infinite; opacity: 0; }
+  @keyframes deco-petal {
+    0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+    10% { opacity: 0.9; }
+    90% { opacity: 0.9; }
+    100% { transform: translate(-40px, 70vh) rotate(300deg); opacity: 0; }
+  }
   @keyframes deco-sway { from { rotate: -4deg; } to { rotate: 4deg; } }
   @keyframes deco-fly { 0% { transform: translate(0, 0) rotate(-6deg); } 50% { transform: translate(14px, -12px) rotate(4deg); } 100% { transform: translate(-10px, 6px) rotate(-2deg); } }
   @keyframes deco-hop { 0%, 70%, 100% { transform: translateY(0); } 80% { transform: translateY(-12px); } }
@@ -278,7 +285,7 @@
     { level: 7,  emoji: '🌳', size: 1.15, name: '大きな木になった',   requiredSteps: 220000 },
     { level: 8,  emoji: '🌳', size: 1.15, name: '動物が住みはじめた', requiredSteps: 300000 },
     { level: 9,  emoji: '🌳', size: 1.2,  name: '小さな森になった',   requiredSteps: 400000 },
-    { level: 10, emoji: '🌳', size: 1.2,  name: '豊かな自然の世界',   requiredSteps: 550000 },
+    { level: 10, emoji: '🌳', size: 1.2,  name: '花いっぱいの森',     requiredSteps: 550000 },
   ];
   // level: この段階から現れる　x/y: 位置（%）　size: 大きさ（px）　move: 動き方
   const DECORATIONS = [
@@ -297,6 +304,17 @@
     { level: 10, emoji: '🌈', x: 13, y: 62, size: 48, move: 'sway' },
     { level: 10, emoji: '🌻', x: 30, y: 17, size: 30, move: 'sway' },
   ];
+  // Lv10：地面いっぱいに花が咲き、花びらが舞う
+  const FLOWERS = ['🌸', '🌷', '🌺', '🌼', '🌹', '🪻', '💐', '🌸'];
+  for (let i = 0; i < 26; i++) {
+    DECORATIONS.push({
+      level: 10, emoji: FLOWERS[i % FLOWERS.length],
+      x: 3 + ((i * 37) % 95), y: 2 + ((i * 53) % 17), size: 22 + ((i * 7) % 14), move: 'sway',
+    });
+  }
+  for (let i = 0; i < 8; i++) {
+    DECORATIONS.push({ level: 10, emoji: '🌸', x: 6 + i * 12, y: 92, size: 16 + (i % 3) * 4, move: 'petal' });
+  }
 
   // ===== 保存データ =====
   // walks: [{ id, start, end, points: [[緯度, 経度, 時刻, 乗り物?], ...], distance }]
@@ -500,7 +518,7 @@
       : 'これまで ' + steps.toLocaleString() + ' 歩・最高の段階です';
     document.getElementById('scene').innerHTML = DECORATIONS.filter((d) => stage.level >= d.level).map((d, i) =>
       '<span class="deco ' + d.move + '" style="left:' + d.x + '%;bottom:' + d.y + '%;font-size:' + d.size +
-      'px;animation-delay:-' + ((i * 0.7) % 3).toFixed(1) + 's">' + d.emoji + '</span>'
+      'px;animation-delay:-' + (d.move === 'petal' ? (i * 0.9) % 7 : (i * 0.7) % 3).toFixed(1) + 's">' + d.emoji + '</span>'
     ).join('');
   }
 
