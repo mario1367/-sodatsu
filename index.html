@@ -675,9 +675,9 @@
       cum.push(cum[i - 1] + (breaks.has(i) ? 0 : distanceM(points[i - 1], points[i])));
     }
     const meters = cum[total - 1];
-    // 一定の速さで進む。長い道でも 10〜48秒 におさまるように速さを決める
+    // 一定の速さで進む。長い道でも 12〜75秒 におさまるように速さを決める
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const durationMs = reduce || meters === 0 ? 0 : Math.min(48000, Math.max(10000, meters / 33 * 1000));
+    const durationMs = reduce || meters === 0 ? 0 : Math.min(75000, Math.max(12000, meters / 22 * 1000));
     const start = performance.now();
     let drawn = 1;     // 線に入れ終わった点の数
     let hasTip = false; // 線の先っぽ（点と点の途中）を入れているか
