@@ -3,50 +3,42 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>そだつ</title>
+<title>あるく</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700&display=swap">
+<!-- 地図ライブラリ（Leaflet） -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
-  /* レイアウト：上の大きな「空と地面」に植物、下に小さく数字。1画面で完結するアプリ */
+  /* レイアウト：上に大きな地図、下に今日の記録と大きなボタン */
   :root {
-    --sky: #d9eef5;       /* 空 */
-    --sky-low: #eef7ea;   /* 地平線近くの空 */
-    --soil: #b98a5e;      /* 土 */
-    --soil-dark: #8e6440; /* 土の影 */
-    --ink: #2f4a33;       /* 文字（深い緑） */
-    --ink-soft: #5f7a62;  /* 補足の文字 */
-    --leaf: #5c9e4c;      /* アクセント（若葉） */
-    --track: #d6e5cf;     /* XPバーの溝 */
-    --page: #f3f8ef;      /* 画面の地 */
-    --leaf-dark: #3f7a33; /* ボタンの影・メッセージ */
-    --on-leaf: #ffffff;   /* ボタンの文字 */
-    --input-bg: #ffffff;  /* 入力欄 */
-    --error: #b4462f;     /* 入力ミスの文字 */
-    --backdrop: rgba(31, 48, 33, 0.45); /* シートの後ろを暗くする */
-    --chip-bg: rgba(255, 255, 255, 0.7); /* 小さなボタンや数字の背景 */
-    --bloom-light: #fff4f7; /* 開花演出の背景（中心） */
-    --bloom-deep: #f6d3df;  /* 開花演出の背景（まわり） */
+    --page: #f4f7f2;      /* 画面の地 */
+    --card: #ffffff;      /* 下のパネル */
+    --ink: #24382a;       /* 文字 */
+    --ink-soft: #62775f;  /* 補足の文字 */
+    --path: #e8663d;      /* 歩いた線（夕焼けのオレンジ） */
+    --path-old: #f0a487;  /* 再生前のうすい線 */
+    --go: #3f8f4f;        /* 歩きはじめるボタン */
+    --stop: #c9503a;      /* おわるボタン */
+    --on-button: #ffffff;
+    --track: #dfe8da;     /* バーの溝・区切り線 */
     --font: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "Yu Gothic", system-ui, sans-serif;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --sky: #1b2b3d; --sky-low: #25362c; --soil: #6e5139; --soil-dark: #4f3926;
-      --ink: #e3efdc; --ink-soft: #a9bfa6; --leaf: #8fcc78; --track: #33452f; --page: #142018;
-      --leaf-dark: #5f9a4c; --on-leaf: #13240f;
-      --input-bg: #1c2a20; --error: #f08a72; --backdrop: rgba(0, 0, 0, 0.6); --chip-bg: rgba(255, 255, 255, 0.08); --bloom-light: #3a2531; --bloom-deep: #1d1418;
+      --page: #121a14; --card: #1b261d; --ink: #e4eee0; --ink-soft: #a6b9a2;
+      --path: #ff8a5c; --path-old: #8a5444; --go: #5fae6c; --stop: #e0694f; --on-button: #10180f; --track: #2c3a2d;
       color-scheme: dark;
     }
   }
   :root[data-theme="dark"] {
-    --sky: #1b2b3d; --sky-low: #25362c; --soil: #6e5139; --soil-dark: #4f3926;
-    --ink: #e3efdc; --ink-soft: #a9bfa6; --leaf: #8fcc78; --track: #33452f; --page: #142018;
-    --leaf-dark: #5f9a4c; --on-leaf: #13240f;
-      --input-bg: #1c2a20; --error: #f08a72; --backdrop: rgba(0, 0, 0, 0.6); --chip-bg: rgba(255, 255, 255, 0.08); --bloom-light: #3a2531; --bloom-deep: #1d1418;
+    --page: #121a14; --card: #1b261d; --ink: #e4eee0; --ink-soft: #a6b9a2;
+    --path: #ff8a5c; --path-old: #8a5444; --go: #5fae6c; --stop: #e0694f; --on-button: #10180f; --track: #2c3a2d;
     color-scheme: dark;
   }
 
   html, body { height: 100%; }
-  [hidden] { display: none !important; } /* hidden を付けた画面は確実に隠す */
+  [hidden] { display: none !important; }
   body {
     margin: 0;
     background: var(--page);
@@ -56,1280 +48,435 @@
   }
   .app {
     height: 100%;
-    max-width: 480px;
+    max-width: 560px;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
   }
 
-  /* ===== 世界（植物を大きく見せる場所） ===== */
-  .world {
-    flex: 1;
-    min-height: 320px;
-    position: relative;
-    overflow: hidden;
-    background: linear-gradient(var(--sky), var(--sky-low));
-    border-radius: 0 0 36px 36px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-end;
-  }
-  .plant {
-    font-size: clamp(120px, 38vw, 180px);
-    line-height: 1;
-    transform-origin: 50% 100%;
-    transition: transform 0.6s ease;
-    margin-bottom: -18px;          /* 根元を少し土に埋める */
-    position: relative;
-    z-index: 1;
-  }
-  .ground {
-    width: 100%;
-    height: 22%;
-    min-height: 70px;
-    background: var(--soil);
-    border-radius: 50% 50% 0 0 / 40px 40px 0 0;
-    box-shadow: inset 0 -18px 0 var(--soil-dark);
-  }
-  .stage-name {
-    position: absolute;
-    top: 24px;
-    left: 0; right: 0;
-    text-align: center;
-    font-weight: 700;
-    font-size: 1.4rem;
-    margin: 0;
-  }
-
-  /* ===== 数字（下に小さく） ===== */
-  .info {
-    padding: 20px 16px 28px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-  .level-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 12px;
-  }
-  .level { font-size: 1.6rem; font-weight: 700; }
-  .xp { color: var(--ink-soft); font-variant-numeric: tabular-nums; }
-  .bar {
-    height: 12px;
-    background: var(--track);
-    border-radius: 999px;
-    overflow: hidden;
-  }
-  .bar-fill {
-    height: 100%;
-    width: 0;
-    background: var(--leaf);
-    border-radius: 999px;
-    transition: width 0.6s ease;
-  }
-  .next { margin: 0; color: var(--ink-soft); font-size: 0.95rem; }
-
-  /* ===== 「今日進んだ」ボタン ===== */
-  .progress-button {
-    margin-top: 6px;
-    padding: 18px;
-    border: none;
-    border-radius: 20px;
-    background: var(--leaf);
-    color: var(--on-leaf);
-    font-family: var(--font);
-    font-weight: 700;
-    font-size: 1.3rem;
-    cursor: pointer;
-    box-shadow: 0 5px 0 var(--leaf-dark);
-  }
-  .progress-button:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--leaf-dark); }
-  .progress-button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
-  .progress-button:disabled {
-    background: var(--track);
-    color: var(--ink-soft);
-    box-shadow: none;
-    cursor: default;
-  }
-  .message {
-    margin: 0;
-    min-height: 1.5em;
-    text-align: center;
-    font-weight: 700;
-    color: var(--leaf-dark);
-  }
-  .streak { color: var(--ink-soft); font-size: 0.95rem; text-align: center; margin: 0; }
-
-  /* 記録したときに植物がぴょこっと跳ねる */
-  /* ふだんは風にゆれるように、ゆっくり左右にかたむく */
-  .plant { animation: sway 4s ease-in-out infinite alternate; }
-  @keyframes sway {
-    from { rotate: -2deg; }
-    to   { rotate: 2deg; }
-  }
-  .plant.grow { animation: grow 0.7s ease, sway 4s ease-in-out infinite alternate; }
-  @keyframes grow {
-    0%   { translate: 0 0; }
-    35%  { translate: 0 -14px; }
-    100% { translate: 0 0; }
-  }
-
-  /* 段階が上がったとき：いったん小さくなってから、ぽんっと大きくなる */
-  .plant.levelup { animation: levelup 0.9s cubic-bezier(.3,1.6,.5,1), sway 4s ease-in-out infinite alternate; }
-  @keyframes levelup {
-    0%   { scale: 0.3; opacity: 0.2; }
-    60%  { scale: 1.18; opacity: 1; }
-    100% { scale: 1; }
-  }
-
-  /* 植物のまわりに出るキラキラや「+16 XP」の文字 */
-  .float {
-    position: absolute;
-    z-index: 3;
-    pointer-events: none;
-    font-weight: 700;
-    animation: float-up 1.4s ease-out forwards;
-  }
-  .float.xp-pop { font-size: 1.3rem; color: var(--leaf-dark); }
-  .float.sparkle { font-size: 1.6rem; }
-  @keyframes float-up {
-    0%   { transform: translateY(0) scale(0.6); opacity: 0; }
-    20%  { opacity: 1; transform: translateY(-10px) scale(1); }
-    100% { transform: translateY(-70px) scale(1); opacity: 0; }
-  }
-
-  /* ===== 目標達成の開花演出（全画面） ===== */
-  .bloom-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 20;
-    overflow: hidden;
-    background: radial-gradient(circle at 50% 40%, var(--bloom-light), var(--bloom-deep));
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px 16px;
-    box-sizing: border-box;
-    animation: fade-in 0.5s ease;
-  }
-  @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-  .bloom-card {
-    position: relative;
-    z-index: 2;
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-    max-width: 360px;
-  }
-  .bloom-flower {
-    font-size: 150px;
-    line-height: 1;
-    animation: bloom-open 1.4s cubic-bezier(.2,1.4,.4,1) both, bloom-spin 12s linear 1.4s infinite;
-  }
-  @keyframes bloom-open {
-    0%   { scale: 0; rotate: -90deg; }
-    100% { scale: 1; rotate: 0deg; }
-  }
-  @keyframes bloom-spin { to { rotate: 360deg; } }
-  .bloom-card .eyebrow { margin: 8px 0 0; font-size: 0.9rem; letter-spacing: 0.12em; color: var(--ink-soft); }
-  .bloom-card h2 { margin: 0; font-size: 2rem; text-wrap: balance; }
-  .bloom-card .bloom-goal { margin: 0; font-size: 1.1rem; font-weight: 700; overflow-wrap: anywhere; }
-  .bloom-card .bloom-story { margin: 0; color: var(--ink-soft); line-height: 1.8; }
-  .bloom-card .progress-button { margin-top: 14px; width: 100%; }
-  .petal {
-    position: absolute;
-    top: -40px;
-    z-index: 1;
-    pointer-events: none;
-    animation: petal-fall linear infinite;
-  }
-  @keyframes petal-fall {
-    0%   { transform: translate(0, 0) rotate(0deg); opacity: 0; }
-    10%  { opacity: 0.9; }
-    100% { transform: translate(40px, 110vh) rotate(360deg); opacity: 0.9; }
-  }
-
-  /* ===== 世界の仲間たち（花・動物・森） ===== */
-  .scene { position: absolute; inset: 0; pointer-events: none; }
-  .deco {
-    position: absolute;
-    line-height: 1;
-    translate: -50% 0;
-    transform-origin: 50% 100%;
-    z-index: 2;
-  }
-  .deco.sway { animation: deco-sway 3.5s ease-in-out infinite alternate; }
-  .deco.fly  { animation: deco-fly 3s ease-in-out infinite alternate; }
-  .deco.hop  { animation: deco-hop 2.4s ease-in-out infinite; }
-  @keyframes deco-sway { from { rotate: -4deg; } to { rotate: 4deg; } }
-  @keyframes deco-fly {
-    0%   { transform: translate(0, 0) rotate(-6deg); }
-    50%  { transform: translate(14px, -12px) rotate(4deg); }
-    100% { transform: translate(-10px, 6px) rotate(-2deg); }
-  }
-  @keyframes deco-hop {
-    0%, 70%, 100% { transform: translateY(0); }
-    80%           { transform: translateY(-12px); }
-  }
-
-  /* ===== 記録画面の下：目標を登録し直す ===== */
-  .restart {
-    margin-top: 16px;
-    padding-top: 16px;
-    border-top: 1px dashed var(--track);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.85rem;
-    color: var(--ink-soft);
-    text-align: center;
-  }
-  .restart p { margin: 0; }
-  .restart button {
-    font-family: var(--font);
-    font-size: 0.9rem;
-    padding: 8px 16px;
-    border-radius: 999px;
-    border: 1px solid var(--ink-soft);
-    background: transparent;
-    color: var(--ink);
-    cursor: pointer;
-  }
-  .restart button.armed { border-color: var(--error); color: var(--error); font-weight: 700; }
-
-  /* ===== ホームの目標表示 ===== */
-  .goal {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--track);
-  }
-  .goal-category { font-size: 0.8rem; color: var(--ink-soft); letter-spacing: 0.05em; }
-  .goal-title { margin: 0; font-size: 1.15rem; font-weight: 700; text-wrap: balance; }
-  .goal-progress { margin: 0; font-size: 0.95rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
-  .goal-progress strong { color: var(--ink); font-size: 1.1rem; }
-
-  /* ===== 目標登録画面 ===== */
-  .setup {
-    max-width: 480px;
-    margin: 0 auto;
-    padding: 28px 16px 40px;
-    display: flex;
-    flex-direction: column;
-    gap: 22px;
-  }
-  .setup-hero { text-align: center; display: flex; flex-direction: column; gap: 6px; }
-  .setup-hero .seed { font-size: 64px; line-height: 1; }
-  .setup-hero h1 { margin: 0; font-size: 1.5rem; text-wrap: balance; }
-  .setup-hero p { margin: 0; color: var(--ink-soft); line-height: 1.7; }
-  .setup form { display: flex; flex-direction: column; gap: 18px; }
-  .field { display: flex; flex-direction: column; gap: 6px; border: none; padding: 0; margin: 0; min-width: 0; }
-  .field label, .field legend { font-weight: 700; padding: 0; }
-  .field .hint { font-size: 0.85rem; color: var(--ink-soft); font-weight: 500; }
-  .field input[type="text"], .field input[type="number"], .field input[type="date"] {
-    font: inherit;
-    font-size: 1rem;
-    padding: 12px 14px;
-    border: 2px solid var(--track);
-    border-radius: 14px;
-    background: var(--input-bg);
-    color: var(--ink);
-    width: 100%;
+  /* ===== 地図 ===== */
+  .map-wrap { flex: 1; min-height: 300px; position: relative; }
+  #map { position: absolute; inset: 0; background: var(--track); }
+  .walker-icon { font-size: 34px; line-height: 1; text-align: center; transition: transform 0.2s; }
+  .walker-icon.east { transform: scaleX(-1); }   /* 東（右）に進むときは右を向く */
+  .here-dot {
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #2f7de1; border: 3px solid #fff;
+    box-shadow: 0 0 0 6px rgba(47, 125, 225, 0.25);
     box-sizing: border-box;
   }
-  .field input:focus { outline: none; border-color: var(--leaf); }
-  .row { display: flex; gap: 10px; }
-  .row .target { flex: 1; min-width: 0; }
-  .row .unit { flex: 1; min-width: 0; }
-  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
-  .chips input { position: absolute; opacity: 0; pointer-events: none; }
-  .chips label {
-    font-weight: 500;
-    padding: 8px 14px;
-    border-radius: 999px;
-    border: 2px solid var(--track);
-    cursor: pointer;
+  .map-note {
+    position: absolute; left: 12px; right: 12px; top: 12px; z-index: 500;
+    background: var(--card); color: var(--ink);
+    border-radius: 14px; padding: 10px 14px; font-size: 0.9rem;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
   }
-  .chips input:checked + label { background: var(--leaf); border-color: var(--leaf); color: var(--on-leaf); }
-  .chips input:focus-visible + label { outline: 3px solid var(--ink); outline-offset: 2px; }
-  .form-error { margin: 0; min-height: 1.4em; color: var(--error); font-weight: 700; }
 
-  /* ===== 記録入力（下から出てくるシート） ===== */
-  .sheet-backdrop {
-    position: fixed;
-    inset: 0;
-    background: var(--backdrop);
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
-    z-index: 10;
-  }
-  .sheet {
-    width: 100%;
-    max-width: 480px;
-    max-height: 90%;
-    overflow-y: auto;
-    box-sizing: border-box;
-    background: var(--page);
+  /* ===== 下のパネル ===== */
+  .panel {
+    background: var(--card);
     border-radius: 28px 28px 0 0;
-    padding: 22px 16px calc(24px + env(safe-area-inset-bottom, 0px));
+    margin-top: -24px;
+    position: relative;
+    z-index: 600;
+    padding: 18px 16px calc(20px + env(safe-area-inset-bottom, 0px));
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    animation: slide-up 0.25s ease;
+    gap: 14px;
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
   }
-  @keyframes slide-up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
-  .sheet h2 { margin: 0; font-size: 1.3rem; }
-  .sheet form { display: flex; flex-direction: column; gap: 16px; }
-  .sheet textarea {
-    font: inherit;
-    font-size: 1rem;
-    padding: 12px 14px;
-    border: 2px solid var(--track);
-    border-radius: 14px;
-    background: var(--input-bg);
-    color: var(--ink);
-    width: 100%;
-    box-sizing: border-box;
-    resize: vertical;
-    min-height: 70px;
+  .day-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .day-nav h1 { margin: 0; font-size: 1.2rem; text-align: center; flex: 1; }
+  .round {
+    width: 40px; height: 40px; border-radius: 50%;
+    border: 1px solid var(--track); background: transparent; color: var(--ink);
+    font-size: 1.2rem; font-family: var(--font); cursor: pointer;
   }
-  .sheet textarea:focus { outline: none; border-color: var(--leaf); }
-  .stepper { display: flex; align-items: center; gap: 12px; }
-  .stepper button {
-    width: 48px; height: 48px;
-    border-radius: 50%;
-    border: 2px solid var(--leaf);
-    background: transparent;
-    color: var(--ink);
-    font-size: 1.5rem;
-    font-family: var(--font);
-    cursor: pointer;
-  }
-  .stepper input {
-    font: inherit;
-    font-size: 1.6rem;
-    font-weight: 700;
-    width: 5.5ch;
-    min-width: 0;
-    padding: 6px 8px;
-    text-align: center;
-    border: 2px solid var(--track);
-    border-radius: 12px;
-    background: var(--input-bg);
-    color: var(--ink);
-    font-variant-numeric: tabular-nums;
-  }
-  .stepper input:focus { outline: none; border-color: var(--leaf); }
-  .stepper.wide input { width: 7ch; }
-  .today-progress { margin: 0; font-size: 0.95rem; color: var(--leaf-dark); font-weight: 700; }
-  .stepper .unit-label { color: var(--ink-soft); }
-  .sheet-actions { display: flex; flex-direction: column; gap: 8px; }
-  .text-button {
-    background: none; border: none; padding: 10px;
-    font-family: var(--font); font-size: 1rem; color: var(--ink-soft); cursor: pointer;
-  }
-  .xp-note { margin: 0; font-size: 0.9rem; color: var(--ink-soft); }
+  .round:disabled { opacity: 0.3; cursor: default; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; }
+  .stats div { display: flex; flex-direction: column; gap: 2px; }
+  .stats strong { font-size: 1.5rem; font-variant-numeric: tabular-nums; }
+  .stats span { font-size: 0.8rem; color: var(--ink-soft); }
+  .goal-bar { height: 10px; background: var(--track); border-radius: 999px; overflow: hidden; }
+  .goal-fill { height: 100%; width: 0; background: var(--path); border-radius: 999px; transition: width 0.5s; }
+  .goal-text { margin: -6px 0 0; font-size: 0.85rem; color: var(--ink-soft); text-align: center; font-variant-numeric: tabular-nums; }
 
-  /* ===== ホームの「記録を見る」ボタン ===== */
-  .timeline-link {
-    position: absolute;
-    top: 16px;
-    right: 16px;
-    z-index: 5;
-    font-family: var(--font);
-    font-size: 0.9rem;
-    padding: 8px 14px;
-    border-radius: 999px;
-    border: none;
-    background: var(--chip-bg);
-    color: var(--ink);
-    cursor: pointer;
+  .main-button {
+    padding: 18px; border: none; border-radius: 20px;
+    font-family: var(--font); font-weight: 700; font-size: 1.3rem;
+    color: var(--on-button); background: var(--go); cursor: pointer;
   }
-  .world .stage-name { top: 64px; }
-
-  /* ===== 記録タイムライン画面 ===== */
-  .timeline {
-    max-width: 480px;
-    margin: 0 auto;
-    padding: 16px 16px 40px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
+  .main-button.stop { background: var(--stop); }
+  .main-button:focus-visible, .sub-button:focus-visible, .round:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+  .sub-row { display: flex; gap: 8px; }
+  .sub-button {
+    flex: 1; padding: 12px; border-radius: 16px;
+    border: 2px solid var(--path); background: transparent; color: var(--ink);
+    font-family: var(--font); font-weight: 700; font-size: 1rem; cursor: pointer;
   }
-  .timeline-header { display: flex; align-items: center; gap: 8px; }
-  .timeline-header h1 { margin: 0; font-size: 1.3rem; }
-  .back-button {
-    font-family: var(--font);
-    font-size: 0.95rem;
-    padding: 8px 12px;
-    border-radius: 999px;
-    border: 1px solid var(--track);
-    background: transparent;
-    color: var(--ink);
-    cursor: pointer;
+  .sub-button:disabled { border-color: var(--track); color: var(--ink-soft); cursor: default; }
+  .walks { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+  .walks li {
+    display: flex; justify-content: space-between; gap: 12px;
+    padding: 8px 0; border-top: 1px solid var(--track);
+    font-size: 0.95rem; font-variant-numeric: tabular-nums;
   }
-  .summary {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    text-align: center;
-  }
-  .summary div { background: var(--chip-bg); border-radius: 16px; padding: 12px 4px; display: flex; flex-direction: column; gap: 2px; }
-  .summary strong { font-size: 1.4rem; font-variant-numeric: tabular-nums; }
-  .summary span { font-size: 0.8rem; color: var(--ink-soft); }
-  .timeline h1 { margin: 0; font-size: 1.4rem; }
-  #timelineList { display: flex; flex-direction: column; gap: 22px; }
-  .day-group { display: flex; flex-direction: column; gap: 8px; }
-  .day-group h2 {
-    margin: 0;
-    font-size: 0.95rem;
-    color: var(--ink-soft);
-    display: flex;
-    justify-content: space-between;
-  }
-  .entry {
-    border-left: 4px solid var(--leaf);
-    padding: 6px 0 6px 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 0;
-  }
-  .entry-did { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
-  .entry-meta { margin: 0; font-size: 0.85rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
-  .entry-memo { margin: 0; font-size: 0.95rem; overflow-wrap: anywhere; white-space: pre-wrap; }
-  .empty { text-align: center; color: var(--ink-soft); line-height: 1.8; padding: 32px 0; }
-
-  @media (prefers-reduced-motion: reduce) {
-    .sheet { animation: none; }
-    .plant, .bar-fill { transition: none; }
-    .plant, .plant.grow, .plant.levelup { animation: none; }
-    .float, .petal { display: none; }
-    .deco { animation: none !important; }
-    .bloom-overlay, .bloom-flower { animation: none; }
-  }
+  .walks li span:last-child { color: var(--ink-soft); }
+  .hint { margin: 0; font-size: 0.85rem; color: var(--ink-soft); text-align: center; line-height: 1.6; }
+  .live { margin: 0; text-align: center; font-weight: 700; color: var(--stop); }
+  .live::before { content: "● "; animation: blink 1.2s infinite; }
+  @keyframes blink { 50% { opacity: 0.2; } }
+  @media (prefers-reduced-motion: reduce) { .live::before { animation: none; } .goal-fill { transition: none; } }
 </style>
 </head>
 <body>
-<!-- ===== 目標登録画面（目標がまだないときだけ表示） ===== -->
-<div class="setup" id="setupScreen" hidden>
-  <div class="setup-hero">
-    <div class="seed" aria-hidden="true">🫘</div>
-    <h1>どんな目標を育てますか？</h1>
-    <p>目標に向かって行動するたびに、<br>ここに植えた種が育っていきます。</p>
+<div class="app">
+  <div class="map-wrap">
+    <div id="map" aria-label="歩いた道の地図"></div>
+    <p class="map-note" id="mapNote" hidden></p>
   </div>
 
-  <form id="goalForm" novalidate>
-    <div class="field">
-      <label for="goalTitle">目標名</label>
-      <input type="text" id="goalTitle" placeholder="例：絵を30作品完成させる" maxlength="40">
+  <section class="panel">
+    <div class="day-nav">
+      <button class="round" id="prevDay" type="button" aria-label="前の日">‹</button>
+      <h1 id="dayTitle">今日</h1>
+      <button class="round" id="nextDay" type="button" aria-label="次の日">›</button>
     </div>
 
-    <fieldset class="field">
-      <legend>目標のタイプ</legend>
-      <div class="chips">
-        <input type="radio" name="goalType" id="typeTotal" value="total" checked><label for="typeTotal">📦 合計を積み上げる</label>
-        <input type="radio" name="goalType" id="typeDaily" value="daily"><label for="typeDaily">📅 毎日の目標をクリアする</label>
-      </div>
-      <span class="hint" id="typeHint">例：絵を30作品、本を1冊、登録者1000人</span>
-    </fieldset>
-
-    <!-- 合計を積み上げるタイプ -->
-    <div class="field" id="totalFields">
-      <label for="goalTarget">最終目標</label>
-      <span class="hint">どこまで行けば達成か、数と単位で決めます</span>
-      <div class="row">
-        <input class="target" type="number" id="goalTarget" placeholder="30" min="1" inputmode="numeric">
-        <input class="unit" type="text" id="goalUnit" placeholder="作品" maxlength="8">
-      </div>
+    <div class="stats">
+      <div><strong id="statSteps">0</strong><span>歩（めやす）</span></div>
+      <div><strong id="statKm">0.00</strong><span>km</span></div>
+      <div><strong id="statMin">0</strong><span>分</span></div>
     </div>
+    <div class="goal-bar"><div class="goal-fill" id="goalFill"></div></div>
+    <p class="goal-text" id="goalText">目標 5,000 歩まで あと 5,000 歩</p>
 
-    <!-- 毎日の目標をクリアするタイプ -->
-    <div class="field" id="dailyFields" hidden>
-      <label for="dailyTarget">1日の目標</label>
-      <div class="row">
-        <input class="target" type="number" id="dailyTarget" placeholder="5000" min="1" inputmode="numeric">
-        <input class="unit" type="text" id="dailyUnit" placeholder="歩" maxlength="8">
-      </div>
-      <label for="dailyDays">何日クリアしたら達成？</label>
-      <div class="row">
-        <input class="target" type="number" id="dailyDays" placeholder="30" min="1" inputmode="numeric">
-        <span class="unit-label" style="align-self:center">日</span>
-      </div>
+    <p class="live" id="liveText" hidden>記録中</p>
+    <button class="main-button" id="mainButton" type="button">🚶 歩きはじめる</button>
+    <div class="sub-row">
+      <button class="sub-button" id="replayButton" type="button">▶ この日の道を再生</button>
     </div>
-
-    <div class="field">
-      <label for="goalDeadline">期限 <span class="hint">（なくてもOK）</span></label>
-      <input type="date" id="goalDeadline">
-    </div>
-
-    <fieldset class="field">
-      <legend>カテゴリー</legend>
-      <div class="chips">
-        <input type="radio" name="category" id="cat1" value="創作" checked><label for="cat1">🎨 創作</label>
-        <input type="radio" name="category" id="cat2" value="学習"><label for="cat2">📚 学習</label>
-        <input type="radio" name="category" id="cat3" value="運動"><label for="cat3">💪 運動</label>
-        <input type="radio" name="category" id="cat4" value="発信"><label for="cat4">📣 発信</label>
-        <input type="radio" name="category" id="cat5" value="仕事"><label for="cat5">💼 仕事</label>
-        <input type="radio" name="category" id="cat6" value="その他"><label for="cat6">✨ その他</label>
-      </div>
-    </fieldset>
-
-    <p class="form-error" id="formError" aria-live="polite"></p>
-    <button class="progress-button" type="submit">🌱 この目標で種をまく</button>
-  </form>
-</div>
-
-<!-- ===== ホーム画面（世界） ===== -->
-<div class="app" id="homeScreen" hidden>
-  <section class="world" aria-label="あなたの世界">
-    <button class="timeline-link" id="openTimeline" type="button">📖 記録を見る</button>
-    <p class="stage-name" id="stageName">何もない土</p>
-    <div class="scene" id="scene" aria-hidden="true"></div>
-    <div class="plant" id="plant" aria-hidden="true">🫘</div>
-    <div class="ground"></div>
+    <ul class="walks" id="walkList"></ul>
+    <p class="hint" id="hint">歩いている間は、このページを開いたまま画面をつけておいてください。画面を消すと記録が止まります。</p>
   </section>
-
-  <section class="info">
-    <div class="goal">
-      <span class="goal-category" id="goalCategory"></span>
-      <p class="goal-title" id="goalTitleText"></p>
-      <p class="goal-progress" id="goalProgress"></p>
-      <p class="today-progress" id="goalToday" hidden></p>
-    </div>
-
-    <div class="level-row">
-      <span class="level" id="level">Lv1</span>
-      <span class="xp" id="xp">0 XP</span>
-    </div>
-    <div class="bar"><div class="bar-fill" id="barFill"></div></div>
-    <p class="next" id="next">次の段階まであと 30 XP</p>
-
-    <button class="progress-button" id="progressButton" type="button">🌱 今日進んだ</button>
-    <p class="message" id="message" aria-live="polite"></p>
-    <p class="streak" id="streak">まだ記録はありません</p>
-  </section>
-</div>
-
-<!-- ===== 記録タイムライン画面 ===== -->
-<div class="timeline" id="timelineScreen" hidden>
-  <div class="timeline-header">
-    <button class="back-button" id="closeTimeline" type="button">← 世界にもどる</button>
-  </div>
-  <h1>これまでの記録</h1>
-  <div class="summary">
-    <div><strong id="sumDays">0</strong><span>記録した日</span></div>
-    <div><strong id="sumAmount">0</strong><span id="sumAmountLabel">進んだ量</span></div>
-    <div><strong id="sumXp">0</strong><span>合計XP</span></div>
-  </div>
-  <div id="timelineList"></div>
-
-  <div class="restart">
-    <button id="resetButton" type="button">目標を最初から登録し直す</button>
-    <p>今の目標・記録・XP・育った世界は、すべて消えます</p>
-  </div>
-</div>
-
-<!-- ===== 目標達成の開花演出 ===== -->
-<div class="bloom-overlay" id="bloomOverlay" hidden role="dialog" aria-modal="true" aria-labelledby="bloomTitle">
-  <div class="bloom-card">
-    <div class="bloom-flower" aria-hidden="true">🌸</div>
-    <p class="eyebrow">GOAL COMPLETE</p>
-    <h2 id="bloomTitle">花が咲きました</h2>
-    <p class="bloom-goal" id="bloomGoal"></p>
-    <p class="bloom-story" id="bloomStory"></p>
-    <button class="progress-button" id="bloomClose" type="button">咲いた花を見にいく</button>
-  </div>
-</div>
-
-<!-- ===== 記録入力シート（「今日進んだ」を押すと出てくる） ===== -->
-<div class="sheet-backdrop" id="recordSheet" hidden>
-  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
-    <h2 id="sheetTitle">今日はどんな一歩でしたか？</h2>
-    <form id="recordForm" novalidate>
-      <div class="field">
-        <label for="recordDid">今日やったこと <span class="hint" id="didHint"></span></label>
-        <input type="text" id="recordDid" placeholder="例：背景の下書きをした" maxlength="60">
-      </div>
-
-      <div class="field">
-        <label for="recordAmount" id="amountLabel"><strong id="amountTitle">進捗量</strong> <span class="hint" id="amountHint">（目標に何個近づいたか。0でもOK）</span></label>
-        <div class="stepper" id="stepper">
-          <button type="button" id="amountMinus" aria-label="1へらす">−</button>
-          <input type="number" id="recordAmount" min="0" inputmode="numeric" value="1">
-          <span class="unit-label" id="amountUnit">作品</span>
-          <button type="button" id="amountPlus" aria-label="1ふやす">＋</button>
-        </div>
-        <p class="today-progress" id="todaySoFar" hidden></p>
-      </div>
-
-      <div class="field">
-        <label for="recordMemo">一言メモ <span class="hint">（なくてもOK）</span></label>
-        <textarea id="recordMemo" placeholder="例：空の色がうまく塗れた" maxlength="200"></textarea>
-      </div>
-
-      <p class="xp-note" id="xpNote"></p>
-      <p class="form-error" id="recordError" aria-live="polite"></p>
-      <div class="sheet-actions">
-        <button class="progress-button" type="submit">🌱 記録する</button>
-        <button class="text-button" type="button" id="recordCancel">やめる</button>
-      </div>
-    </form>
-  </div>
 </div>
 
 <script>
-  // ===== 植物の成長段階の表 =====
-  // 段階を増やしたり、必要XPを調整したいときはここだけ書き換えればOK。
-  // emoji: 真ん中の主役　size: 主役の大きさ（1が基本）
-  const STAGES = [
-    { level: 1,  emoji: '🫘', size: 0.35, name: '何もない土地',       requiredXp: 0 },
-    { level: 2,  emoji: '🌱', size: 0.6,  name: '小さな芽が出た',     requiredXp: 30 },
-    { level: 3,  emoji: '🌿', size: 0.8,  name: '植物が育った',       requiredXp: 120 },
-    { level: 4,  emoji: '🌿', size: 0.85, name: '花が咲きはじめた',   requiredXp: 300 },
-    { level: 5,  emoji: '🌳', size: 0.8,  name: '小さな木になった',   requiredXp: 600 },
-    { level: 6,  emoji: '🌳', size: 0.9,  name: '蝶や鳥がやって来た', requiredXp: 900 },
-    { level: 7,  emoji: '🌳', size: 1.15, name: '大きな木になった',   requiredXp: 1300 },
-    { level: 8,  emoji: '🌳', size: 1.15, name: '動物が住みはじめた', requiredXp: 1800 },
-    { level: 9,  emoji: '🌳', size: 1.2,  name: '小さな森になった',   requiredXp: 2400 },
-    { level: 10, emoji: '🌳', size: 1.2,  name: '豊かな自然の世界',   requiredXp: 3200 },
-  ];
+  // ===== 設定 =====
+  const DAILY_GOAL_STEPS = 5000; // 1日の目標歩数
+  const STRIDE_M = 0.7;          // 1歩の長さ（メートル）。歩数はこれで距離から計算した「めやす」
+  const MIN_MOVE_M = 4;          // これより小さい動きはGPSのブレとして無視
+  const MAX_ACCURACY_M = 40;     // 位置の精度がこれより悪いときは使わない
+  const SAVE_KEY = 'aruku-data';
 
-  // ===== 世界に増えていく仲間たち =====
-  // level: この段階から現れる　x: 左からの位置（%）　y: 下からの位置（%）
-  // size: 文字の大きさ（px）　move: 動き方（sway=ゆれる / fly=飛ぶ / hop=はねる）
-  // 新しい植物や動物を足したいときは、ここに1行追加すればOK。
-  const DECORATIONS = [
-    { level: 4,  emoji: '🌼', x: 14, y: 14, size: 34, move: 'sway' },
-    { level: 4,  emoji: '🌷', x: 80, y: 13, size: 36, move: 'sway' },
-    { level: 4,  emoji: '🌼', x: 66, y: 10, size: 26, move: 'sway' },
-    { level: 6,  emoji: '🦋', x: 22, y: 52, size: 34, move: 'fly' },
-    { level: 6,  emoji: '🐦', x: 76, y: 66, size: 34, move: 'fly' },
-    { level: 8,  emoji: '🐇', x: 24, y: 9,  size: 42, move: 'hop' },
-    { level: 8,  emoji: '🐿️', x: 86, y: 18, size: 34, move: 'hop' },
-    { level: 9,  emoji: '🌲', x: 5,  y: 16, size: 90, move: 'sway' },
-    { level: 9,  emoji: '🌳', x: 94, y: 16, size: 80, move: 'sway' },
-    { level: 9,  emoji: '🍄', x: 38, y: 8,  size: 26, move: 'sway' },
-    { level: 10, emoji: '🦌', x: 72, y: 9,  size: 52, move: 'hop' },
-    { level: 10, emoji: '🐝', x: 60, y: 46, size: 24, move: 'fly' },
-    { level: 10, emoji: '🌈', x: 13, y: 70, size: 48, move: 'sway' },
-    { level: 10, emoji: '🌻', x: 30, y: 17, size: 30, move: 'sway' },
-  ];
-
-  // 目標を達成したときだけ、地面いっぱいに咲く花
-  const BLOOM_FLOWERS = [
-    { emoji: '🌸', x: 8,  y: 20, size: 34 },
-    { emoji: '🌸', x: 32, y: 15, size: 30 },
-    { emoji: '🌸', x: 54, y: 7,  size: 28 },
-    { emoji: '🌸', x: 74, y: 19, size: 32 },
-    { emoji: '🌸', x: 92, y: 9,  size: 30 },
-    { emoji: '🌸', x: 44, y: 22, size: 24 },
-  ];
-
-  // ===== XPのルール =====
-  const BASE_XP = 10;        // 1日1回、記録するともらえるXP
-  const STREAK_XP = 2;       // 連続日数 × 2 XP のボーナス
-  const MAX_STREAK_BONUS = 10; // ボーナスの上限
-
-  // ===== いまの状態 =====
-  let totalXp = 0;          // 合計XP
-  let streak = 0;           // 連続記録日数
-  let lastRecordDay = null; // 最後に記録した日（まだならnull）
-  let goal = null;          // 登録した目標（まだならnull）
-  let records = [];         // 毎日の記録（新しいものが後ろ）
-  // records の中身の例：
-  // { day: 20366, did: '背景の下書き', amount: 1, memo: '空の色がうまく塗れた', xp: 16 }
-  // goal の中身の例：
-  // { title: '絵を30作品完成させる', target: 30, unit: '作品', current: 0,
-  //   deadline: '2027-03-31', category: '創作' }
-  let today = 0;            // 今日の日付を「通し番号」にしたもの（下で計算します）
-
-  // ===== 日付 =====
-  // 日付を「1970年1月1日から何日目か」という数字にする。
-  // 数字にしておくと「昨日 = 今日 - 1」のように簡単に比べられる。
-  function getTodayNumber() {
-    const now = new Date();
-    const utc = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
-    return Math.floor(utc / 86400000);
-  }
-
-  // 通し番号の日付を「10月5日」の形にする
-  function formatDay(dayNumber) {
-    const d = new Date(dayNumber * 86400000);
-    return (d.getUTCMonth() + 1) + '月' + d.getUTCDate() + '日';
-  }
-
-  // ===== 保存と読み込み =====
-  // ブラウザの中（localStorage）に保存します。インターネットは使いません。
-  const SAVE_KEY = 'sodatsu-data';
+  // ===== 保存データ =====
+  // walks: [{ id, start, end, points: [[緯度, 経度, 時刻], ...], distance }]
+  let walks = [];
+  let current = null;            // 記録中の散歩（記録していないときはnull）
 
   function save() {
-    const data = { totalXp, streak, lastRecordDay, goal, records };
-    try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify(data));
-    } catch (e) {
-      // 保存できない環境（シークレットモードなど）では、何もしない
-    }
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify({ walks, current })); } catch (e) {}
   }
-
   function load() {
     try {
-      const text = localStorage.getItem(SAVE_KEY);
-      if (!text) return; // はじめて開いたときは何もない
-      const data = JSON.parse(text);
-      totalXp = data.totalXp || 0;
-      streak = data.streak || 0;
-      lastRecordDay = data.lastRecordDay ?? null;
-      goal = data.goal || null;
-      records = data.records || [];
-    } catch (e) {
-      // 読み込めなかったら、最初の状態のまま始める
+      const data = JSON.parse(localStorage.getItem(SAVE_KEY) || '{}');
+      walks = data.walks || [];
+      // アプリが途中で閉じられた散歩は、そこまでの分を保存しておく
+      if (data.current && data.current.points.length > 1) {
+        data.current.end = data.current.points[data.current.points.length - 1][2];
+        walks.push(data.current);
+      }
+    } catch (e) {}
+  }
+
+  // ===== 日付 =====
+  function dayKey(time) {
+    const d = new Date(time);
+    return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+  }
+  function startOfDay(time) {
+    const d = new Date(time);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  }
+  let viewDay = startOfDay(Date.now()); // 表示している日
+
+  function dayTitle(day) {
+    const today = startOfDay(Date.now());
+    if (day === today) return '今日';
+    if (day === today - 86400000) return '昨日';
+    const d = new Date(day);
+    const week = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()];
+    return (d.getMonth() + 1) + '月' + d.getDate() + '日（' + week + '）';
+  }
+  function clock(time) {
+    const d = new Date(time);
+    return d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0');
+  }
+
+  // ===== 距離の計算（2点間のメートル） =====
+  function distanceM(a, b) {
+    const R = 6371000;
+    const toRad = (x) => x * Math.PI / 180;
+    const dLat = toRad(b[0] - a[0]);
+    const dLng = toRad(b[1] - a[1]);
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a[0])) * Math.cos(toRad(b[0])) * Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+
+  // ===== 地図 =====
+  const map = L.map('map', { zoomControl: false, attributionControl: true }).setView([35.681, 139.767], 15);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap',
+  }).addTo(map);
+  const pathColor = () => getComputedStyle(document.documentElement).getPropertyValue('--path').trim();
+  const oldColor = () => getComputedStyle(document.documentElement).getPropertyValue('--path-old').trim();
+
+  let dayLayer = L.layerGroup().addTo(map);   // 表示中の日の線
+  let liveLine = null;                        // 記録中の線
+  const walkerIcon = L.divIcon({ className: '', html: '<div class="walker-icon" id="walkerEl">🚶</div>', iconSize: [36, 36], iconAnchor: [18, 32] });
+  let walker = null;                          // 歩く人のマーカー
+  const hereIcon = L.divIcon({ className: '', html: '<div class="here-dot"></div>', iconSize: [16, 16], iconAnchor: [8, 8] });
+  let hereMarker = null;
+
+  function showNote(text) {
+    const note = document.getElementById('mapNote');
+    note.textContent = text;
+    note.hidden = !text;
+  }
+
+  // 歩く人の向きを、進む方向に合わせる
+  function faceWalker(from, to) {
+    const el = document.getElementById('walkerEl');
+    if (el) el.classList.toggle('east', to[1] > from[1]);
+  }
+
+  // ===== 表示中の日の散歩 =====
+  function walksOfDay(day) {
+    return walks.filter((w) => startOfDay(w.start) === day).sort((a, b) => a.start - b.start);
+  }
+
+  function renderDay() {
+    const list = walksOfDay(viewDay);
+    const isToday = viewDay === startOfDay(Date.now());
+    const all = current && isToday ? list.concat([current]) : list;
+
+    // 数字
+    const meters = all.reduce((s, w) => s + w.distance, 0);
+    const minutes = all.reduce((s, w) => s + ((w.end || Date.now()) - w.start), 0) / 60000;
+    const steps = Math.round(meters / STRIDE_M);
+    document.getElementById('dayTitle').textContent = dayTitle(viewDay);
+    document.getElementById('statSteps').textContent = steps.toLocaleString();
+    document.getElementById('statKm').textContent = (meters / 1000).toFixed(2);
+    document.getElementById('statMin').textContent = Math.round(minutes);
+    document.getElementById('goalFill').style.width = Math.min(100, steps / DAILY_GOAL_STEPS * 100) + '%';
+    document.getElementById('goalText').textContent = steps >= DAILY_GOAL_STEPS
+      ? '🎉 目標 ' + DAILY_GOAL_STEPS.toLocaleString() + ' 歩を達成！'
+      : '目標 ' + DAILY_GOAL_STEPS.toLocaleString() + ' 歩まで あと ' + (DAILY_GOAL_STEPS - steps).toLocaleString() + ' 歩';
+
+    // 一覧
+    document.getElementById('walkList').innerHTML = list.map((w) =>
+      '<li><span>🚶 ' + clock(w.start) + ' 〜 ' + clock(w.end) + '</span><span>' +
+      (w.distance / 1000).toFixed(2) + ' km・約' + Math.round(w.distance / STRIDE_M).toLocaleString() + '歩</span></li>'
+    ).join('');
+
+    // 日付ボタン
+    document.getElementById('nextDay').disabled = isToday;
+    document.getElementById('mainButton').hidden = !isToday;
+    document.getElementById('replayButton').disabled = list.length === 0 || current !== null;
+    document.getElementById('hint').hidden = !isToday;
+
+    // 地図に線を引く
+    dayLayer.clearLayers();
+    const bounds = [];
+    for (const w of list) {
+      const latlngs = w.points.map((p) => [p[0], p[1]]);
+      L.polyline(latlngs, { color: pathColor(), weight: 6, opacity: 0.85, lineCap: 'round' }).addTo(dayLayer);
+      bounds.push(...latlngs);
+    }
+    if (bounds.length > 1 && !current) map.fitBounds(bounds, { padding: [40, 40] });
+    if (!list.length && !current) {
+      showNote(isToday ? '「歩きはじめる」を押すと、歩いた道がここに線で残ります。' : 'この日の記録はありません。');
+    } else {
+      showNote('');
     }
   }
 
-  // 合計XPから、いまの段階を探す
-  function getStage(xp) {
-    let current = STAGES[0];
-    for (const stage of STAGES) {
-      if (xp >= stage.requiredXp) current = stage;
+  // ===== 記録 =====
+  let watchId = null;
+  let wakeLock = null;
+  let tickTimer = null;
+
+  async function keepScreenOn() {
+    try { wakeLock = await navigator.wakeLock.request('screen'); } catch (e) { wakeLock = null; }
+  }
+
+  function startWalk() {
+    if (!('geolocation' in navigator)) {
+      showNote('このブラウザでは位置情報が使えません。');
+      return;
     }
-    return current;
-  }
-
-  // 次の段階（いちばん上なら null）
-  function getNextStage(xp) {
-    const current = getStage(xp);
-    return STAGES.find((s) => s.level === current.level + 1) || null;
-  }
-
-  // 同じ段階の中での進み具合（0〜1）
-  function getStageProgress(xp) {
-    const current = getStage(xp);
-    const next = getNextStage(xp);
-    if (!next) return 1;
-    return (xp - current.requiredXp) / (next.requiredXp - current.requiredXp);
-  }
-
-  // 画面を今のXPに合わせて描き直す
-  function render() {
-    const stage = getStage(totalXp);
-    const next = getNextStage(totalXp);
-    const progress = getStageProgress(totalXp);
-
-    // 同じ段階の中でも、XPに応じて少しずつ大きくする（0.9倍〜1.0倍）
-    const scale = 0.9 + 0.1 * progress;
-
-    // 目標を達成していたら、地面いっぱいに花が咲く
-    const bloomed = isGoalDone();
-
-    document.getElementById('plant').textContent = stage.emoji;
-    document.getElementById('plant').style.transform = 'scale(' + (stage.size * scale) + ')';
-    document.getElementById('stageName').textContent = bloomed ? '🌸 花が咲いた！' : stage.name;
-    renderScene(stage.level, bloomed);
-    document.getElementById('level').textContent = 'Lv' + stage.level;
-    document.getElementById('xp').textContent = totalXp + ' XP';
-    document.getElementById('barFill').style.width = (progress * 100) + '%';
-    let nextText = next
-      ? '次の段階まであと ' + (next.requiredXp - totalXp) + ' XP'
-      : '最高の段階まで育ちました';
-    if (bloomed) nextText = '目標達成、おめでとうございます！';
-    document.getElementById('next').textContent = nextText;
-  }
-
-  // 段階に合わせて、花や動物を世界に並べる
-  function renderScene(level, bloomed) {
-    const items = DECORATIONS.filter((d) => level >= d.level);
-    if (bloomed) items.push(...BLOOM_FLOWERS.map((f) => ({ ...f, move: 'sway' })));
-    let html = '';
-    items.forEach((d, i) => {
-      // 1つずつ動きのタイミングをずらすと、自然に見える
-      const delay = -((i * 0.7) % 3).toFixed(1);
-      html += '<span class="deco ' + d.move + '" style="left:' + d.x + '%;bottom:' + d.y +
-        '%;font-size:' + d.size + 'px;animation-delay:' + delay + 's">' + d.emoji + '</span>';
+    viewDay = startOfDay(Date.now());
+    current = { id: Date.now(), start: Date.now(), end: null, points: [], distance: 0 };
+    liveLine = L.polyline([], { color: pathColor(), weight: 6, opacity: 0.95, lineCap: 'round' }).addTo(map);
+    showNote('位置を探しています…');
+    watchId = navigator.geolocation.watchPosition(onPosition, onPositionError, {
+      enableHighAccuracy: true, maximumAge: 0, timeout: 20000,
     });
-    document.getElementById('scene').innerHTML = html;
+    keepScreenOn();
+    tickTimer = setInterval(renderDay, 15000); // 時間の表示を少しずつ進める
+    setRecordingUI(true);
+    save();
+    renderDay();
   }
 
-  // 目標を達成したかどうか
-  function isGoalDone() {
-    return goal !== null && goal.current >= goal.target;
-  }
-
-  // いま開いている画面（'home' か 'timeline'）。保存はしない
-  let view = 'home';
-
-  // 目標がまだなければ登録画面、あればホームかタイムラインを出す
-  function showScreen() {
-    document.getElementById('setupScreen').hidden = goal !== null;
-    document.getElementById('homeScreen').hidden = goal === null || view !== 'home';
-    document.getElementById('timelineScreen').hidden = goal === null || view !== 'timeline';
-    window.scrollTo(0, 0);
-  }
-
-  // ===== 記録タイムライン =====
-  function openTimeline() {
-    view = 'timeline';
-    renderTimeline();
-    showScreen();
-  }
-
-  function closeTimeline() {
-    view = 'home';
-    // 「もう一度押すと全部消えます」の状態は解除しておく
-    resetArmed = false;
-    document.getElementById('resetButton').textContent = '目標を最初から登録し直す';
-    document.getElementById('resetButton').classList.remove('armed');
-    showScreen();
-  }
-
-  // 曜日つきの日付（例：10月5日（日））
-  function formatDayWithWeek(dayNumber) {
-    const d = new Date(dayNumber * 86400000);
-    const week = ['日', '月', '火', '水', '木', '金', '土'][d.getUTCDay()];
-    return formatDay(dayNumber) + '（' + week + '）';
-  }
-
-  function renderTimeline() {
-    // 上の3つの数字
-    const days = new Set(records.map((r) => r.day));
-    const daily = isDaily();
-    const amountSum = daily
-      ? records.reduce((sum, r) => sum + (r.value || 0), 0)
-      : records.reduce((sum, r) => sum + r.amount, 0);
-    document.getElementById('sumDays').textContent = days.size;
-    document.getElementById('sumAmount').textContent = amountSum.toLocaleString();
-    document.getElementById('sumAmountLabel').textContent = daily ? '合計の' + goal.dailyUnit : '進んだ' + goal.unit;
-    document.getElementById('sumXp').textContent = totalXp;
-
-    const list = document.getElementById('timelineList');
-    if (records.length === 0) {
-      list.innerHTML = '<p class="empty">まだ記録はありません。<br>「今日進んだ」を押すと、ここに一歩ずつ並んでいきます。</p>';
+  function onPosition(pos) {
+    if (!current) return;
+    const { latitude, longitude, accuracy } = pos.coords;
+    const point = [latitude, longitude, pos.timestamp || Date.now()];
+    if (!hereMarker) hereMarker = L.marker([latitude, longitude], { icon: hereIcon }).addTo(map);
+    hereMarker.setLatLng([latitude, longitude]);
+    if (accuracy > MAX_ACCURACY_M) {
+      showNote('GPSの電波を探しています…（空が見える場所だと早くなります）');
       return;
     }
+    showNote('');
+    const last = current.points[current.points.length - 1];
+    if (last) {
+      const d = distanceM(last, point);
+      if (d < MIN_MOVE_M) return; // ほとんど動いていない
+      current.distance += d;
+    }
+    current.points.push(point);
+    liveLine.addLatLng([latitude, longitude]);
+    map.panTo([latitude, longitude]);
+    save();
+    renderDay();
+  }
 
-    // 日付ごとにまとめる（新しい日が上）
-    const sortedDays = Array.from(days).sort((a, b) => b - a);
-    let html = '';
-    for (const day of sortedDays) {
-      const dayRecords = records.filter((r) => r.day === day);
-      const label = day === today ? '今日' : day === today - 1 ? '昨日' : formatDayWithWeek(day);
-      html += '<section class="day-group">';
-      let right = day === today || day === today - 1 ? formatDay(day) : '';
-      if (daily) right = valueOnDay(day).toLocaleString() + ' / ' + goal.dailyTarget.toLocaleString() + ' ' + escapeHtml(goal.dailyUnit);
-      html += '<h2><span>' + label + '</span><span>' + right + '</span></h2>';
-      for (const r of dayRecords.slice().reverse()) {
-        // 毎日タイプで「やったこと」が空なら、数（例：3,200 歩）を見出しにする
-        const valueText = (r.value || 0).toLocaleString() + ' ' + escapeHtml(goal.dailyUnit || '');
-        const title = r.did ? escapeHtml(r.did) : valueText;
-        const parts = [];
-        if (daily) {
-          if (r.did) parts.push(valueText);
-          if (r.amount > 0) parts.push('✅ クリア');
+  function onPositionError(err) {
+    if (err.code === 1) {
+      showNote('位置情報が許可されていません。ブラウザの設定で、このページの位置情報を「許可」にしてください。');
+      stopWalk();
+    } else {
+      showNote('位置がうまく取れません。しばらく待つか、場所を少し移動してみてください。');
+    }
+  }
+
+  function stopWalk() {
+    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+    clearInterval(tickTimer);
+    if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+    if (liveLine) { map.removeLayer(liveLine); liveLine = null; }
+    if (current) {
+      current.end = Date.now();
+      if (current.points.length > 1) walks.push(current);
+      current = null;
+    }
+    setRecordingUI(false);
+    save();
+    renderDay();
+  }
+
+  function setRecordingUI(recording) {
+    const button = document.getElementById('mainButton');
+    button.textContent = recording ? '■ 歩きおわる' : '🚶 歩きはじめる';
+    button.classList.toggle('stop', recording);
+    document.getElementById('liveText').hidden = !recording;
+    document.getElementById('prevDay').disabled = recording;
+  }
+
+  // 画面に戻ってきたら、画面をつけたままにする設定をやり直す
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && current) keepScreenOn();
+  });
+
+  // ===== 再生（人が線を引きながら歩く） =====
+  let replayTimer = null;
+
+  function replayDay() {
+    const list = walksOfDay(viewDay);
+    if (!list.length) return;
+    stopReplay();
+    const points = list.flatMap((w) => w.points.map((p) => [p[0], p[1]]));
+    playRoute(points, list.map((w) => w.points.length));
+  }
+
+  // points を順番にたどって、線を伸ばしながら人を動かす
+  function playRoute(points, segmentLengths) {
+    dayLayer.eachLayer((layer) => layer.setStyle && layer.setStyle({ color: oldColor(), opacity: 0.6 }));
+    map.fitBounds(points, { padding: [40, 40] });
+    let line = L.polyline([points[0]], { color: pathColor(), weight: 6, lineCap: 'round' }).addTo(dayLayer);
+    walker = L.marker(points[0], { icon: walkerIcon, zIndexOffset: 1000 }).addTo(dayLayer);
+
+    // 散歩の切れ目（別の散歩）では線をつなげない
+    const breaks = new Set();
+    let sum = 0;
+    for (const n of segmentLengths) { sum += n; breaks.add(sum); }
+
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const total = points.length;
+    const durationMs = reduce ? 0 : Math.min(15000, Math.max(5000, total * 40)); // 5〜15秒で再生
+    const start = performance.now();
+    let drawn = 1;
+    document.getElementById('replayButton').textContent = '■ 再生をとめる';
+
+    function frame(now) {
+      const target = durationMs === 0 ? total : Math.min(total, Math.floor((now - start) / durationMs * total) + 1);
+      while (drawn < target) {
+        const p = points[drawn];
+        if (breaks.has(drawn)) {
+          line = L.polyline([p], { color: pathColor(), weight: 6, lineCap: 'round' }).addTo(dayLayer);
         } else {
-          parts.push('+' + r.amount + ' ' + escapeHtml(goal.unit));
+          line.addLatLng(p);
         }
-        if (r.xp > 0) parts.push('+' + r.xp + ' XP');
-        html += '<div class="entry">';
-        html += '<p class="entry-did">' + title + '</p>';
-        if (parts.length) html += '<p class="entry-meta">' + parts.join('・') + '</p>';
-        if (r.memo) html += '<p class="entry-memo">💬 ' + escapeHtml(r.memo) + '</p>';
-        html += '</div>';
+        faceWalker(points[drawn - 1], p);
+        walker.setLatLng(p);
+        drawn++;
       }
-      html += '</section>';
-    }
-    list.innerHTML = html;
-  }
-
-  // 毎日の目標をクリアするタイプかどうか
-  function isDaily() {
-    return goal !== null && goal.type === 'daily';
-  }
-
-  // その日に記録した数（歩数など）の合計
-  function valueOnDay(day) {
-    return records.filter((r) => r.day === day).reduce((sum, r) => sum + (r.value || 0), 0);
-  }
-
-  // ホームの目標表示を描き直す
-  function renderGoal() {
-    if (!goal) return;
-    document.getElementById('goalCategory').textContent = goal.category;
-    document.getElementById('goalTitleText').textContent = goal.title;
-
-    let text = isDaily()
-      ? 'クリアした日 <strong>' + goal.current + '</strong> / ' + goal.target + ' 日'
-      : '進捗 <strong>' + goal.current + '</strong> / ' + goal.target + ' ' + escapeHtml(goal.unit);
-    if (goal.deadline) {
-      const [y, m, d] = goal.deadline.split('-').map(Number);
-      const deadlineDay = Math.floor(Date.UTC(y, m - 1, d) / 86400000);
-      const daysLeft = deadlineDay - today;
-      text += '・' + y + '年' + m + '月' + d + '日まで';
-      text += daysLeft >= 0 ? '（あと' + daysLeft + '日）' : '（期限をすぎました）';
-    }
-    document.getElementById('goalProgress').innerHTML = text;
-
-    // 毎日タイプは「今日 3200 / 5000 歩」も出す
-    const todayLine = document.getElementById('goalToday');
-    todayLine.hidden = !isDaily();
-    if (isDaily()) {
-      const v = valueOnDay(today);
-      todayLine.textContent = v >= goal.dailyTarget
-        ? '✅ 今日 ' + v + ' / ' + goal.dailyTarget + ' ' + goal.dailyUnit + '　クリア！'
-        : '今日 ' + v + ' / ' + goal.dailyTarget + ' ' + goal.dailyUnit + '　あと ' + (goal.dailyTarget - v) + ' ' + goal.dailyUnit;
-    }
-  }
-
-  // 入力された文字をそのままHTMLに入れても安全なようにする
-  function escapeHtml(str) {
-    return str.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  }
-
-  // 目標のタイプを切り替えたとき、入力欄を入れかえる
-  function switchGoalType() {
-    const daily = document.getElementById('typeDaily').checked;
-    document.getElementById('totalFields').hidden = daily;
-    document.getElementById('dailyFields').hidden = !daily;
-    document.getElementById('typeHint').textContent = daily
-      ? '例：毎日5000歩を30日、毎日30分勉強を100日'
-      : '例：絵を30作品、本を1冊、登録者1000人';
-    document.getElementById('goalTitle').placeholder = daily ? '例：毎日5000歩歩く' : '例：絵を30作品完成させる';
-  }
-
-  // 目標登録フォームを送ったとき
-  function submitGoal(event) {
-    event.preventDefault(); // ページが再読み込みされないようにする
-    const title = document.getElementById('goalTitle').value.trim();
-    const type = document.querySelector('input[name="goalType"]:checked').value;
-    const deadline = document.getElementById('goalDeadline').value; // 空ならなし
-    const category = document.querySelector('input[name="category"]:checked').value;
-    const error = document.getElementById('formError');
-    if (!title) { error.textContent = '目標名を入れてください'; return; }
-
-    if (type === 'daily') {
-      // 毎日の目標をクリアするタイプ（例：毎日5000歩を30日）
-      const dailyTarget = Number(document.getElementById('dailyTarget').value);
-      const dailyUnit = document.getElementById('dailyUnit').value.trim();
-      const days = Number(document.getElementById('dailyDays').value);
-      if (!Number.isInteger(dailyTarget) || dailyTarget < 1) { error.textContent = '1日の目標は1以上の数で入れてください'; return; }
-      if (!dailyUnit) { error.textContent = '1日の目標の単位を入れてください（例：歩、分、ページ）'; return; }
-      if (!Number.isInteger(days) || days < 1) { error.textContent = '何日クリアしたら達成か、1以上の数で入れてください'; return; }
-      error.textContent = '';
-      goal = { type, title, target: days, unit: '日', dailyTarget, dailyUnit, current: 0, deadline, category };
-    } else {
-      // 合計を積み上げるタイプ（例：絵を30作品）
-      const target = Number(document.getElementById('goalTarget').value);
-      const unit = document.getElementById('goalUnit').value.trim();
-      if (!Number.isInteger(target) || target < 1) { error.textContent = '最終目標は1以上の数で入れてください'; return; }
-      if (!unit) { error.textContent = '単位を入れてください（例：作品、日、人）'; return; }
-      error.textContent = '';
-      goal = { type, title, target, unit, current: 0, deadline, category };
-    }
-    save();
-    showScreen();
-    renderGoal();
-    render();
-    renderStatus();
-    document.getElementById('message').textContent = '🫘 種をまきました。今日から一緒に育てよう';
-  }
-
-  // ボタンや連続日数の表示を描き直す
-  function renderStatus() {
-    const button = document.getElementById('progressButton');
-    // 今日すでに記録していても、もう一度記録できる（XPは1日1回だけ）
-    const recordedToday = lastRecordDay === today;
-    button.textContent = recordedToday ? '＋ 今日の記録を追加する' : '🌱 今日進んだ';
-    // 昨日も今日も記録していなければ、連続は途切れている
-    const streakAlive = lastRecordDay !== null && lastRecordDay >= today - 1;
-    let streakText = 'まだ記録はありません';
-    if (streakAlive) {
-      streakText = '🔥 ' + streak + '日連続で記録中';
-    } else if (lastRecordDay !== null) {
-      streakText = '今日からまた連続記録をはじめよう';
-    }
-    document.getElementById('streak').textContent = streakText;
-  }
-
-  // ===== 演出 =====
-  // 動きを減らす設定のスマホでは、派手な演出はしない
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  // 植物に動きのクラスを付け直す（同じ動きをもう一度再生するため）
-  function playPlant(className) {
-    const plant = document.getElementById('plant');
-    plant.classList.remove('grow', 'levelup');
-    void plant.offsetWidth; // アニメーションをもう一度動かすためのおまじない
-    plant.classList.add(className);
-  }
-
-  // 世界の中に、ふわっと浮かんで消える文字を出す
-  function floatText(text, className, leftPercent, bottomPercent, delay) {
-    if (reduceMotion) return;
-    const world = document.querySelector('.world');
-    const el = document.createElement('span');
-    el.className = 'float ' + className;
-    el.textContent = text;
-    el.style.left = leftPercent + '%';
-    el.style.bottom = bottomPercent + '%';
-    el.style.animationDelay = (delay || 0) + 's';
-    world.appendChild(el);
-    setTimeout(() => el.remove(), 1600 + (delay || 0) * 1000);
-  }
-
-  // 段階が上がったときのキラキラ
-  function sparkle() {
-    const spots = [[25, 45], [70, 50], [35, 70], [62, 75], [48, 85], [80, 35], [18, 30]];
-    spots.forEach(([x, y], i) => floatText(i % 2 ? '✨' : '⭐', 'sparkle', x, y, i * 0.08));
-  }
-
-  // 目標達成の開花演出
-  function showBloom() {
-    const days = new Set(records.map((r) => r.day)).size;
-    document.getElementById('bloomGoal').textContent = '「' + goal.title + '」';
-    document.getElementById('bloomStory').textContent =
-      days + '日間の一歩一歩が、ひとつの花になりました。';
-    const overlay = document.getElementById('bloomOverlay');
-    // 花びらを降らせる
-    overlay.querySelectorAll('.petal').forEach((p) => p.remove());
-    if (!reduceMotion) {
-      for (let i = 0; i < 14; i++) {
-        const petal = document.createElement('span');
-        petal.className = 'petal';
-        petal.textContent = i % 3 === 0 ? '🌸' : '🩷';
-        petal.style.left = Math.random() * 100 + '%';
-        petal.style.fontSize = (14 + Math.random() * 16) + 'px';
-        petal.style.animationDuration = (5 + Math.random() * 4) + 's';
-        petal.style.animationDelay = (Math.random() * 4) + 's';
-        overlay.appendChild(petal);
-      }
-    }
-    overlay.hidden = false;
-    document.getElementById('bloomClose').focus();
-  }
-
-  function closeBloom() {
-    document.getElementById('bloomOverlay').hidden = true;
-    playPlant('levelup');
-    sparkle();
-  }
-
-  // アプリを開いたときのひとこと
-  function greeting() {
-    if (!goal) return '';
-    if (isGoalDone()) return '🌸 花が咲いています。よく頑張りました';
-    if (lastRecordDay === null) return '🫘 種が芽を出すのを待っています';
-    if (lastRecordDay === today) return '今日も一歩進みました。また明日';
-    if (lastRecordDay === today - 1) return '☀️ 昨日の一歩で、少し大きくなっています';
-    return '🌿 おかえりなさい。植物は待っていてくれました';
-  }
-
-  // ===== 記録入力シート =====
-
-  // 「今日進んだ」を押したとき：シートを開く
-  function openRecordSheet() {
-    document.getElementById('recordForm').reset();
-    document.getElementById('recordError').textContent = '';
-    const daily = isDaily();
-    document.getElementById('recordAmount').value = daily ? '' : 1;
-    document.getElementById('amountUnit').textContent = daily ? goal.dailyUnit : goal.unit;
-    document.getElementById('amountTitle').textContent = daily ? '今日の' + goal.dailyUnit + '数' : '進捗量';
-    document.getElementById('amountHint').textContent = daily
-      ? '（何回かに分けて記録しても、その日の合計で数えます）'
-      : '（目標に何個近づいたか。0でもOK）';
-    document.getElementById('recordAmount').placeholder = daily ? String(goal.dailyTarget) : '';
-    // 毎日タイプは大きな数を直接入れるので、＋−ボタンは隠す
-    document.getElementById('amountMinus').hidden = daily;
-    document.getElementById('amountPlus').hidden = daily;
-    document.getElementById('stepper').classList.toggle('wide', daily);
-    document.getElementById('didHint').textContent = daily ? '（なくてもOK）' : '';
-    document.getElementById('recordDid').placeholder = daily ? '例：駅まで歩いた' : '例：背景の下書きをした';
-    const soFar = document.getElementById('todaySoFar');
-    soFar.hidden = !daily;
-    if (daily) soFar.textContent = '今日はここまで ' + valueOnDay(today) + ' / ' + goal.dailyTarget + ' ' + goal.dailyUnit;
-    document.getElementById('xpNote').textContent = lastRecordDay === today
-      ? '今日のXPはもうもらっています。進捗とメモは記録できます'
-      : '記録すると XP がもらえます';
-    document.getElementById('recordSheet').hidden = false;
-    document.getElementById(isDaily() ? 'recordAmount' : 'recordDid').focus();
-  }
-
-  function closeRecordSheet() {
-    document.getElementById('recordSheet').hidden = true;
-  }
-
-  // ＋／− ボタン
-  function changeAmount(diff) {
-    const input = document.getElementById('recordAmount');
-    input.value = Math.max(0, (Number(input.value) || 0) + diff);
-  }
-
-  // 「記録する」を押したとき
-  function submitRecord(event) {
-    event.preventDefault();
-    let did = document.getElementById('recordDid').value.trim();
-    const memo = document.getElementById('recordMemo').value.trim();
-    const daily = isDaily();
-    const inputValue = Number(document.getElementById('recordAmount').value);
-    const error = document.getElementById('recordError');
-    if (!Number.isInteger(inputValue) || inputValue < 0) {
-      error.textContent = daily ? '今日の' + goal.dailyUnit + '数を数字で入れてください' : '進捗量は0以上の数で入れてください';
-      return;
-    }
-    if (daily && inputValue === 0 && !did) {
-      error.textContent = '今日の' + goal.dailyUnit + '数を入れてください';
-      return;
-    }
-    if (!daily && !did) {
-      error.textContent = '今日やったことを一言入れてください';
-      return;
-    }
-
-    // 目標に何個近づいたか（毎日タイプは、その日の合計が目標を超えた瞬間に「1日」）
-    let amount = inputValue;
-    let value = 0;
-    let clearedToday = false;
-    if (daily) {
-      value = inputValue;
-      const beforeSum = valueOnDay(today);
-      clearedToday = beforeSum < goal.dailyTarget && beforeSum + value >= goal.dailyTarget;
-      amount = clearedToday ? 1 : 0;
-    }
-
-    // --- XP（1日1回まで） ---
-    let gained = 0;
-    if (lastRecordDay !== today) {
-      // 昨日も記録していたら連続、そうでなければ1日目からやり直し（XPは減らない）
-      if (lastRecordDay === today - 1) {
-        streak = streak + 1;
+      if (drawn < total) {
+        replayTimer = requestAnimationFrame(frame);
       } else {
-        streak = 1;
+        replayTimer = null;
+        document.getElementById('replayButton').textContent = '▶ この日の道を再生';
       }
-      lastRecordDay = today;
-      const bonus = Math.min(streak * STREAK_XP, MAX_STREAK_BONUS);
-      gained = BASE_XP + bonus;
     }
-
-    const wasDone = isGoalDone();
-    const before = getStage(totalXp);
-    totalXp = totalXp + gained;
-    const after = getStage(totalXp);
-
-    // --- 目標の進捗 ---
-    goal.current = goal.current + amount;
-
-    // --- 記録を残す ---
-    const record = { day: today, did, amount, memo, xp: gained };
-    if (daily) record.value = value;
-    records.push(record);
-
-    // --- メッセージ ---
-    let message;
-    if (!wasDone && isGoalDone()) {
-      message = '🌸 目標達成！花が咲きました';
-    } else if (after.level > before.level) {
-      message = '🎉 Lv' + after.level + '　' + after.name + '！';
-    } else if (clearedToday) {
-      message = '✅ 今日の目標クリア！ ' + valueOnDay(today) + ' ' + goal.dailyUnit;
-    } else if (gained > 0) {
-      message = '+' + gained + ' XP！ 世界が少し育ちました';
-    } else {
-      message = '記録しました（XPはまた明日）';
-    }
-    document.getElementById('message').textContent = message;
-
-    closeRecordSheet();
-
-    save();
-    render();
-    renderGoal();
-    renderStatus();
-
-    // --- 演出 ---
-    if (!wasDone && isGoalDone()) {
-      // 目標達成：少し待ってから全画面の開花演出
-      playPlant('levelup');
-      setTimeout(showBloom, reduceMotion ? 0 : 600);
-    } else if (after.level > before.level) {
-      // 段階が上がった：ぽんっと出てきてキラキラ
-      playPlant('levelup');
-      sparkle();
-    } else {
-      // ふつうの記録：ぴょこっと跳ねる
-      playPlant('grow');
-    }
-    if (gained > 0) floatText('+' + gained + ' XP', 'xp-pop', 68, 62);
+    replayTimer = requestAnimationFrame(frame);
   }
 
-  // 目標を最初から登録し直す（2回押すと実行）
-  let resetArmed = false;
-  function resetAll() {
-    const button = document.getElementById('resetButton');
-    if (!resetArmed) {
-      resetArmed = true;
-      button.textContent = 'もう一度押すと全部消えます';
-      button.classList.add('armed');
-      return;
-    }
-    resetArmed = false;
-    button.textContent = '目標を最初から登録し直す';
-    button.classList.remove('armed');
-    totalXp = 0;
-    streak = 0;
-    lastRecordDay = null;
-    goal = null;
-    records = [];
-    view = 'home';
-    today = getTodayNumber();
-    document.getElementById('message').textContent = '';
-    document.getElementById('goalForm').reset();
-    switchGoalType();
-    save();
-    showScreen();
-    render();
-    renderStatus();
+  function stopReplay() {
+    if (replayTimer) cancelAnimationFrame(replayTimer);
+    replayTimer = null;
+    walker = null;
+    document.getElementById('replayButton').textContent = '▶ この日の道を再生';
   }
 
-  document.getElementById('progressButton').addEventListener('click', openRecordSheet);
-  document.getElementById('openTimeline').addEventListener('click', openTimeline);
-  document.getElementById('closeTimeline').addEventListener('click', closeTimeline);
-  document.getElementById('recordForm').addEventListener('submit', submitRecord);
-  document.getElementById('recordCancel').addEventListener('click', closeRecordSheet);
-  // 入力し直したらエラー表示を消す
-  document.getElementById('recordDid').addEventListener('input', () => {
-    document.getElementById('recordError').textContent = '';
+  // ===== ボタン =====
+  document.getElementById('mainButton').addEventListener('click', () => {
+    stopReplay();
+    if (current) stopWalk(); else startWalk();
   });
-  document.getElementById('amountMinus').addEventListener('click', () => changeAmount(-1));
-  document.getElementById('amountPlus').addEventListener('click', () => changeAmount(1));
-  // シートの外側（暗いところ）を押したら閉じる
-  document.getElementById('recordSheet').addEventListener('click', (event) => {
-    if (event.target.id === 'recordSheet') closeRecordSheet();
+  document.getElementById('replayButton').addEventListener('click', () => {
+    if (replayTimer) { stopReplay(); renderDay(); } else { replayDay(); }
   });
-  document.getElementById('resetButton').addEventListener('click', resetAll);
-  document.getElementById('goalForm').addEventListener('submit', submitGoal);
-  document.getElementById('typeTotal').addEventListener('change', switchGoalType);
-  document.getElementById('typeDaily').addEventListener('change', switchGoalType);
-  document.getElementById('recordAmount').addEventListener('input', () => {
-    document.getElementById('recordError').textContent = '';
+  document.getElementById('prevDay').addEventListener('click', () => {
+    stopReplay(); viewDay -= 86400000; viewDay = startOfDay(viewDay + 3600000); renderDay();
   });
-  document.getElementById('bloomClose').addEventListener('click', closeBloom);
+  document.getElementById('nextDay').addEventListener('click', () => {
+    stopReplay(); viewDay = startOfDay(viewDay + 86400000 + 3600000); renderDay();
+  });
 
-  // アプリを開いたとき：保存したデータを読み込んでから表示する
+  // ===== はじめに =====
   load();
-  today = getTodayNumber();
-  // 以前のテスト版で未来の日付に記録していた場合は、今日に合わせる
-  if (lastRecordDay !== null && lastRecordDay > today) lastRecordDay = today;
-  showScreen();
-  renderGoal();
-  render();
-  renderStatus();
-  document.getElementById('message').textContent = greeting();
+  save();
+  renderDay();
+  // 今いる場所を地図の真ん中にする（記録がない日だけ）
+  if (!walksOfDay(viewDay).length && 'geolocation' in navigator) {
+    navigator.geolocation.getCurrentPosition((pos) => {
+      map.setView([pos.coords.latitude, pos.coords.longitude], 16);
+    }, () => {}, { enableHighAccuracy: false, timeout: 10000 });
+  }
 </script>
 </body>
 </html>
