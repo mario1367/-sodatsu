@@ -657,17 +657,28 @@
 
     // breaks に入っている番号の点では、前の点と線をつなげない
 
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // 点と点の間の距離を足していき、「ここまで何m進んだか」を点ごとに出しておく
+    // （乗り物の区間や散歩と散歩の間は 0m として、すぐに飛ばす）
     const total = points.length;
-    const durationMs = reduce ? 0 : Math.min(15000, Math.max(5000, total * 40)); // 5〜15秒で再生
+    const cum = [0];
+    for (let i = 1; i < total; i++) {
+      cum.push(cum[i - 1] + (breaks.has(i) ? 0 : distanceM(points[i - 1], points[i])));
+    }
+    const meters = cum[total - 1];
+    // 一定の速さで進む。長い道でも 8〜40秒 におさまるように速さを決める
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const durationMs = reduce || meters === 0 ? 0 : Math.min(40000, Math.max(8000, meters / 40 * 1000));
     const start = performance.now();
-    let drawn = 1;
+    let drawn = 1;     // 線に入れ終わった点の数
+    let hasTip = false; // 線の先っぽ（点と点の途中）を入れているか
     document.getElementById('replayButton').textContent = '■ 再生をとめる';
 
     function frame(now) {
-      const target = durationMs === 0 ? total : Math.min(total, Math.floor((now - start) / durationMs * total) + 1);
-      while (drawn < target) {
+      const traveled = durationMs === 0 ? meters : Math.min(meters, (now - start) / durationMs * meters);
+      // 通りすぎた点を線に入れる
+      while (drawn < total && cum[drawn] <= traveled) {
         const p = points[drawn];
+        if (hasTip) { const ll = line.getLatLngs(); ll.pop(); line.setLatLngs(ll); hasTip = false; }
         if (breaks.has(drawn)) {
           line = L.polyline([p], { color: pathColor(), weight: 6, lineCap: 'round' }).addTo(dayLayer);
         } else {
@@ -676,6 +687,19 @@
         faceWalker(points[drawn - 1], p);
         walker.setLatLng(p);
         drawn++;
+      }
+      // 次の点までの途中に人を置く
+      if (drawn < total && !breaks.has(drawn)) {
+        const a = points[drawn - 1], b = points[drawn];
+        const segment = cum[drawn] - cum[drawn - 1];
+        const f = segment > 0 ? (traveled - cum[drawn - 1]) / segment : 0;
+        const pos = [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f];
+        const ll = line.getLatLngs();
+        if (hasTip) ll[ll.length - 1] = L.latLng(pos); else ll.push(L.latLng(pos));
+        line.setLatLngs(ll);
+        hasTip = true;
+        faceWalker(a, b);
+        walker.setLatLng(pos);
       }
       if (drawn < total) {
         replayTimer = requestAnimationFrame(frame);
