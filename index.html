@@ -26,6 +26,16 @@
 <!-- 地図ライブラリ（Leaflet） -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+  // アクセス数（GoatCounter）：開かれた回数だけを数える。歩いた道や歩数は送らない。サンプル表示（?demo）は数えない
+  if (!/[?&]demo/.test(location.search)) {
+    const gc = document.createElement('script');
+    gc.async = true;
+    gc.src = 'https://gc.zgo.at/count.js';
+    gc.dataset.goatcounter = 'https://sanpo-tekuteku.goatcounter.com/count';
+    document.head.appendChild(gc);
+  }
+</script>
 <style>
   /* レイアウト：上に大きな地図、下に今日の記録と大きなボタン */
   :root {
