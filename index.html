@@ -267,6 +267,14 @@
   }
   .demo-bar { margin: 0; padding: 8px 12px; border-radius: 12px; background: #fff3c4; color: #5a4500; font-size: 0.85rem; font-weight: 700; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
   .demo-bar a { color: inherit; }
+  /* 成長の森に来た神さま（神社の花） */
+  .kami-layer { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
+  .kami { position: absolute; width: 44px; height: 86px; translate: -50% 0; }
+  .kami svg { position: absolute; left: 2px; bottom: 0; width: 40px; height: 53px; overflow: visible; }
+  .kami img { position: absolute; left: 50%; bottom: 31px; translate: -50% 0; height: 36px; max-width: 58px; object-fit: contain; object-position: bottom;
+    filter: drop-shadow(0 1px 1px rgba(0,0,0,0.3)); animation: kami-sway 3.4s ease-in-out infinite alternate; transform-origin: 50% 100%; }
+  .world.picture-mode .kami-layer { top: 120px; }
+  @media (prefers-reduced-motion: reduce) { .kami img { animation: none; } }
   /* ===== 神社の花畑 ===== */
   .shrine { border: 2px solid var(--track); border-radius: 18px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
   .shrine-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
@@ -360,6 +368,7 @@
     <section class="world" id="world" aria-label="成長の森" hidden>
       <p class="world-title"><strong id="stageName">何もない土地</strong><span id="stageInfo"></span></p>
       <div class="scene" id="scene" aria-hidden="true"></div>
+      <div class="kami-layer" id="kamiLayer" aria-hidden="true"></div>
       <div class="plant" id="plant" aria-hidden="true">🫘</div>
       <div class="ground"></div>
       <canvas class="picture" id="picture" aria-hidden="true" hidden></canvas>
@@ -985,6 +994,15 @@
     }
     return svg + '</svg>';
   }
+  // 咲いた花と神さまを、成長の森の手前に並べる（咲いた順に左から）
+  const KAMI_SPOTS = [[8, 3], [92, 3], [22, 9], [78, 9], [36, 2], [64, 2], [15, 15], [85, 15], [50, 10], [29, 16], [71, 16]];
+  function renderKami() {
+    document.getElementById('kamiLayer').innerHTML = shrine.flowers.filter((f) => f.bloomAt).map((f, i) => {
+      const c = SHRINE_CHARS[f.char];
+      const [x, y] = KAMI_SPOTS[i % KAMI_SPOTS.length];
+      return '<div class="kami" style="left:' + x + '%;bottom:' + y + '%;z-index:' + (20 - y) + '"><img src="chars/shrine/' + c.img + '.png" alt="">' + plantSvg(3, c) + '</div>';
+    }).join('');
+  }
   function renderShrine() {
     const total = SHRINE_CHARS.length;
     document.getElementById('shrineCount').textContent = '種 ' + shrine.flowers.length + ' / ' + total + '・' + shrine.points + 'ポイント';
@@ -1169,6 +1187,7 @@
     const stage = showStage || getStage(steps);
     const next = STAGES.find((s) => s.level === stage.level + 1);
     const pictureMode = !!stage.picture;
+    renderKami();
     document.getElementById('world').classList.toggle('picture-mode', pictureMode);
     document.getElementById('picture').hidden = !pictureMode;
     if (pictureMode) {
