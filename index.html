@@ -88,8 +88,17 @@
     25% { transform: translateY(-2px) rotate(-2deg); }
     75% { transform: translateY(-2px) rotate(2deg); }
   }
-  @media (prefers-reduced-motion: reduce) { .walker-icon img { animation: none; } }
   .walker-icon.west { transform: scaleX(-1); }   /* 西（左）に進むときは左を向く */
+  /* 神・ガネーシャ・象人間は、右を向いたり左を向いたりしながら歩く */
+  .walker-icon.turn img { animation: turn 1.1s ease-in-out infinite; }
+  @keyframes turn {
+    0%, 42%   { transform: scaleX(1) translateY(0) rotate(0deg); }
+    21%       { transform: scaleX(1) translateY(-3px) rotate(-4deg); }
+    50%, 92%  { transform: scaleX(-1) translateY(0) rotate(0deg); }
+    71%       { transform: scaleX(-1) translateY(-3px) rotate(-4deg); }
+    100%      { transform: scaleX(1) translateY(0) rotate(0deg); }
+  }
+  @media (prefers-reduced-motion: reduce) { .walker-icon img, .walker-icon.turn img { animation: none; } }
   .here-dot {
     width: 16px; height: 16px; border-radius: 50%;
     background: #2f7de1; border: 3px solid #fff;
@@ -709,7 +718,7 @@
   function walkerIcon() {
     const look = WALKER_LOOKS[form] || WALKER_LOOKS.normal;
     return L.divIcon({ className: '', iconSize: [look.w, look.h], iconAnchor: [look.w / 2, look.h - 2],
-      html: '<div class="walker-icon" id="walkerEl" style="width:' + look.w + 'px;height:' + look.h + 'px"><img src="' + look.src + '" alt="' + look.alt + '"></div>' });
+      html: '<div class="walker-icon' + (form !== 'normal' && WALKER_LOOKS[form] ? ' turn' : '') + '" id="walkerEl" style="width:' + look.w + 'px;height:' + look.h + 'px"><img src="' + look.src + '" alt="' + look.alt + '"></div>' });
   }
   let walker = null;                          // 歩く人のマーカー
   const hereIcon = L.divIcon({ className: '', html: '<div class="here-dot"></div>', iconSize: [16, 16], iconAnchor: [8, 8] });
