@@ -265,6 +265,29 @@
     85% { opacity: 1; }
     100% { opacity: 0; transform: translateY(-8px); }
   }
+  /* ===== 神社の花畑 ===== */
+  .shrine { border: 2px solid var(--track); border-radius: 18px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+  .shrine-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .shrine-head span { font-weight: 700; font-size: 0.95rem; }
+  .shrine-head strong { font-size: 0.9rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .shrine-garden { display: flex; gap: 2px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+  .shrine-slot { flex: none; width: 62px; height: 112px; position: relative; }
+  .shrine-slot svg { position: absolute; left: 1px; bottom: 0; width: 60px; height: 80px; overflow: visible; }
+  .shrine-slot img { position: absolute; left: 50%; bottom: 50px; translate: -50% 0; height: 46px; max-width: 70px; object-fit: contain; object-position: bottom; z-index: 1;
+    filter: drop-shadow(0 1px 1px rgba(0,0,0,0.25)); animation: kami-sway 3.4s ease-in-out infinite alternate; transform-origin: 50% 100%; }
+  @keyframes kami-sway { from { rotate: -3deg; } to { rotate: 3deg; } }
+  .shrine-slot.empty svg { opacity: 0.35; }
+  .shrine-slot .slot-pt { position: absolute; left: 0; right: 0; top: 30px; text-align: center; font-size: 0.72rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  .shrine-text { margin: 0; font-size: 0.86rem; line-height: 1.55; color: var(--ink-soft); }
+  .shrine-text b { color: var(--ink); }
+  .shrine-note {
+    position: absolute; left: 12px; right: 12px; bottom: 36px; z-index: 520; text-align: center;
+    background: #b3262d; color: #fff; border-radius: 14px; padding: 8px 12px; font-weight: 700; font-size: 0.92rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2); font-variant-numeric: tabular-nums;
+  }
+  .cat-icon img { width: 100%; height: 100%; display: block; transform-origin: 50% 100%; animation: step 0.42s ease-in-out infinite; }
+  .cat-icon.west img { transform: scaleX(-1); }
+  @media (prefers-reduced-motion: reduce) { .shrine-slot img, .cat-icon img { animation: none; } }
   /* ===== 成長の記録 ===== */
   .record-page {
     position: fixed; inset: 0; z-index: 2000; background: var(--page); overflow-y: auto;
@@ -285,7 +308,8 @@
     display: grid; place-items: center; font-size: 1.4rem;
   }
   .record-list li.form .record-icon { border-color: #d4a72c; }
-  .record-list li.form .record-icon img { width: 34px; height: 34px; object-fit: contain; }
+  .record-list li.form .record-icon img, .record-list li.kami .record-icon img { width: 34px; height: 34px; object-fit: contain; }
+  .record-list li.kami .record-icon { border-color: #b3262d; }
   .record-body { background: var(--card); border-radius: 14px; padding: 9px 12px; display: flex; flex-direction: column; gap: 1px; }
   .record-date { font-size: 0.8rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
   .record-text { font-weight: 700; }
@@ -342,6 +366,7 @@
       <div class="dq-box" id="dqBox" role="status" aria-live="polite" hidden><p id="dqText"></p><span class="dq-next" aria-hidden="true">▼</span></div>
     </section>
     <p class="map-note" id="mapNote" hidden></p>
+    <p class="shrine-note" id="shrineNote" role="status" hidden></p>
   </div>
 
   <section class="panel">
@@ -364,6 +389,12 @@
       <div class="growth-bar" role="progressbar" aria-label="次の成長まで" aria-valuemin="0" id="growthBar"><div class="growth-fill" id="growthFill"></div></div>
       <p class="growth-nudge" id="growthNudge" hidden></p>
       <div class="growth-foot"><span id="growthSub">0 / 5,000 歩</span><button class="text-button" id="recordButton" type="button">📖 成長の記録 ›</button></div>
+    </div>
+
+    <div class="shrine" id="shrine">
+      <div class="shrine-head"><span>⛩ 神社の花畑</span><strong id="shrineCount">種 0 / 11</strong></div>
+      <div class="shrine-garden" id="shrineGarden" aria-label="神社の花"></div>
+      <p class="shrine-text" id="shrineText"></p>
     </div>
 
     <p class="live" id="liveText" hidden>記録中</p>
@@ -524,16 +555,18 @@
   // 4つ目が 1 の点は「乗り物で移動してきた点」。その前の点とは線をつながず、距離にも入れない
   let walks = [];
   let current = null;            // 記録中の散歩（記録していないときはnull）
+  let shrine = { flowers: [], points: 0, visited: {}, log: [] }; // 神社の花畑（flowers: { char, seedAt, points, bloomAt }）
   let form = 'normal';           // いまのすがた：'normal'（ふつう）/ 'god'（神）/ 'zou'（象人間）
 
   function save() {
-    try { localStorage.setItem(SAVE_KEY, JSON.stringify({ walks, current, form })); } catch (e) {}
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify({ walks, current, form, shrine })); } catch (e) {}
   }
   function load() {
     try {
       const data = JSON.parse(localStorage.getItem(SAVE_KEY) || '{}');
       walks = (data.walks || []).map(cleanWalk);
       form = data.form || 'normal';
+      if (data.shrine) shrine = Object.assign(shrine, data.shrine);
       // 記録中にページが閉じられた散歩：少し前までなら続きから記録する
       if (data.current) {
         const pts = data.current.points;
@@ -681,6 +714,7 @@
       : '目標 ' + DAILY_GOAL_STEPS.toLocaleString() + ' 歩まで あと ' + (DAILY_GOAL_STEPS - steps).toLocaleString() + ' 歩';
 
     renderGrowth();
+    renderShrine();
 
     // 一覧
     document.getElementById('walkList').innerHTML = list.map((w, i) =>
@@ -765,11 +799,15 @@
   function celebrateGrowth(stage) {
     const card = document.getElementById('growth');
     card.classList.remove('just'); void card.offsetWidth; card.classList.add('just');
+    showToast(GROWTH[stage.level][0] + ' ' + GROWTH[stage.level][2] + '<small>Lv' + stage.level + '「' + stage.name + '」</small>');
+  }
+  // 地図の上に、小さなお知らせを数秒だけ出す（音とふるえつき）
+  function showToast(html) {
     document.querySelectorAll('.growth-toast').forEach((el) => el.remove());
     const toast = document.createElement('div');
     toast.className = 'growth-toast';
     toast.setAttribute('role', 'status');
-    toast.innerHTML = GROWTH[stage.level][0] + ' ' + GROWTH[stage.level][2] + '<small>Lv' + stage.level + '「' + stage.name + '」</small>';
+    toast.innerHTML = html;
     document.querySelector('.map-wrap').appendChild(toast);
     setTimeout(() => toast.remove(), 4300);
     playChime();
@@ -789,6 +827,181 @@
         osc.connect(gain).connect(ac.destination); osc.start(t); osc.stop(t + len);
       });
     } catch (e) {}
+  }
+
+  // ===== 神社の花畑 =====
+  // 神社に SEED_STAY 以上いると種が1つ手に入る。そのあとは神社に POINT_STAY 以上いるたびに1ポイント（同じ神社は1日1回）
+  // ポイントで種が育ち、花が咲くと神さまが座る。種は神さまの数（11）まで
+  const SHRINE_RADIUS_M = 60;          // 神社の場所からこの距離までは「神社にいる」
+  const SEED_STAY_MS = 3 * 60000;      // 種がもらえる時間
+  const POINT_STAY_MS = 60000;         // ポイントがもらえる時間
+  const BLOOM_STEPS = [2, 4, 6];       // 芽・つぼみ・花になるポイント
+  const CAT_POINTS = 10;               // 神社ポイントの合計がこれだけたまると、ネコがついてくる
+  // 花に座る神さま（来る順）。花の色は、その神さまの色に合わせる
+  const SHRINE_CHARS = [
+    { img: 'biwa',      name: '琵琶をひく女神',     petal: '#f3c6de', center: '#b48ad0', leaf: '#7fae86' },
+    { img: 'tsurukame', name: 'ツルッ亀',           petal: '#fbfbf6', center: '#d8292f', leaf: '#8bbf3f' },
+    { img: 'kuebiko',   name: '久延毘古',           petal: '#8ec5e8', center: '#d9b36a', leaf: '#a4b54a' },
+    { img: 'tsukuyomi', name: '月読命',             petal: '#f6dd4c', center: '#fffbe0', leaf: '#4d6a8f' },
+    { img: 'doratan',   name: 'ドラタン',           petal: '#f2e21b', center: '#d0124a', leaf: '#4fbfbd' },
+    { img: 'daruma',    name: '帽子のだるま',       petal: '#c8202a', center: '#2ba3dd', leaf: '#6aa84f' },
+    { img: 'ikushima',  name: '生島神と足島神',     petal: '#d8c486', center: '#5a8d4a', leaf: '#7a9a4a' },
+    { img: 'chikara',   name: '力になる神さま',     petal: '#3f6b4c', center: '#c9d4c9', leaf: '#2f4f3a' },
+    { img: 'robo',      name: 'からくりだるま',     petal: '#9c5a66', center: '#d6d6d6', leaf: '#6e6f63' },
+    { img: 'niwatori',  name: 'ニワトリの神さま',   petal: '#b9cbd3', center: '#b4507e', leaf: '#7c8f6a' },
+    { img: 'dogu',      name: '玉座の女神',         petal: '#2bb3a3', center: '#9b46b8', leaf: '#3b7f8a' },
+  ];
+  let shrineList = [];   // 近くの神社 [{ id, name, lat, lng, box }]
+  let shrineArea = null; // 神社を調べた場所と時刻
+  let shrineLoading = 0;
+  let shrineStay = null; // いま いる神社 { id, name, since, seen, seeded }
+  let shrineTimer = null;
+  let lastFix = null;
+  const SHRINE_KEY = 'aruku-shrines';
+  try { const c = JSON.parse(localStorage.getItem(SHRINE_KEY) || 'null'); if (c) { shrineList = c.list; shrineArea = c.area; } } catch (e) {}
+
+  // 近くの神社を地図（OpenStreetMap）から調べる。前に調べた場所から 800m 以上はなれたら調べ直す
+  function loadShrines(at) {
+    if (!at) at = lastFix;
+    if (!at || Date.now() - shrineLoading < 120000) return;
+    if (shrineArea && distanceM(shrineArea, at) < 800 && Date.now() - shrineArea[2] < 3 * 86400000) return;
+    shrineLoading = Date.now();
+    const around = '(around:1500,' + at[0].toFixed(5) + ',' + at[1].toFixed(5) + ')';
+    const q = '[out:json][timeout:25];(nwr["amenity"="place_of_worship"]["religion"="shinto"]' + around +
+      ';nwr["amenity"="place_of_worship"]["name"~"神社|神宮|大社|稲荷|八幡|天満宮"]' + around + ';);out bb tags;';
+    const urls = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter'];
+    const tryUrl = (i) => {
+      if (i >= urls.length) return;
+      fetch(urls[i] + '?data=' + encodeURIComponent(q)).then((r) => { if (!r.ok) throw r; return r.json(); }).then((json) => {
+        shrineList = json.elements.map((e) => {
+          const b = e.bounds;
+          return { id: e.type[0] + e.id, name: (e.tags && e.tags.name) || '名前のない神社',
+            lat: b ? (b.minlat + b.maxlat) / 2 : e.lat, lng: b ? (b.minlon + b.maxlon) / 2 : e.lon,
+            box: b ? [b.minlat, b.minlon, b.maxlat, b.maxlon] : null };
+        });
+        shrineArea = [at[0], at[1], Date.now()];
+        shrineLoading = 0;
+        try { localStorage.setItem(SHRINE_KEY, JSON.stringify({ list: shrineList, area: shrineArea })); } catch (e) {}
+      }).catch(() => tryUrl(i + 1));
+    };
+    tryUrl(0);
+  }
+  function nearShrine(lat, lng) {
+    let best = null, bestD = Infinity;
+    for (const sh of shrineList) {
+      // 境内が広い神社は、その四角の中（＋20m）なら「いる」
+      const pad = 20 / 111320;
+      const inBox = sh.box && lat >= sh.box[0] - pad && lat <= sh.box[2] + pad && lng >= sh.box[1] - pad * 1.25 && lng <= sh.box[3] + pad * 1.25;
+      const d = distanceM([lat, lng], [sh.lat, sh.lng]);
+      if ((inBox || d <= SHRINE_RADIUS_M) && d < bestD) { best = sh; bestD = d; }
+    }
+    return best;
+  }
+  function growingFlower() { return shrine.flowers.find((f) => !f.bloomAt); }
+  function flowerStage(f) { return f.bloomAt ? 3 : f.points >= BLOOM_STEPS[1] ? 2 : f.points >= BLOOM_STEPS[0] ? 1 : 0; }
+  function mmss(ms) { const s = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(s / 60) + '分' + String(s % 60).padStart(2, '0') + '秒'; }
+
+  // 記録中に位置が届くたび（と5秒ごと）に、神社にいるかを見る
+  function checkShrine(lat, lng) {
+    if (!current) return;
+    loadShrines([lat, lng]);
+    const note = document.getElementById('shrineNote');
+    const sh = nearShrine(lat, lng);
+    const now = Date.now();
+    if (!sh) { shrineStay = null; note.hidden = true; return; }
+    // 10分以上 間があいたら、来なおしたことにする
+    if (!shrineStay || shrineStay.id !== sh.id || now - shrineStay.seen > 600000) shrineStay = { id: sh.id, name: sh.name, since: now, seen: now };
+    shrineStay.seen = now;
+    const stay = now - shrineStay.since;
+    const key = sh.id + '|' + dayKey(now);
+    const growing = growingFlower();
+    let changed = false;
+    // ポイント（種を持ったことがあれば）
+    if (shrine.flowers.length && !shrine.visited[key] && stay >= POINT_STAY_MS) {
+      shrine.visited[key] = 1;
+      shrine.points++;
+      changed = true;
+      if (growing) {
+        const before = flowerStage(growing);
+        growing.points++;
+        if (growing.points >= BLOOM_STEPS[2]) {
+          growing.bloomAt = now;
+          const c = SHRINE_CHARS[growing.char];
+          shrine.log.push({ t: now, type: 'bloom', char: growing.char, shrine: sh.name });
+          showToast('<img src="chars/shrine/' + c.img + '.png" alt="" style="height:54px;display:block;margin:0 auto 4px">🌸 花が咲いて ' + c.name + 'が座った！<small>' + sh.name + '</small>');
+        } else if (flowerStage(growing) > before) {
+          showToast((flowerStage(growing) === 1 ? '🌱 種から 芽が出た！' : '🌷 つぼみが ふくらんだ！') + '<small>神社ポイント +1（' + sh.name + '）</small>');
+        } else {
+          showToast('⛩ 神社ポイント +1<small>' + sh.name + '</small>');
+        }
+      } else {
+        showToast('⛩ 神社ポイント +1<small>' + sh.name + '</small>');
+      }
+      if (shrine.points === CAT_POINTS) {
+        shrine.log.push({ t: now + 1, type: 'cat' });
+        setTimeout(() => showToast('<img src="chars/cat_sit.png" alt="" style="height:40px;display:block;margin:0 auto 4px">ネコが ついてくるように なった！<small>神社ポイント ' + CAT_POINTS + '</small>'), 4500);
+      }
+    }
+    // 種（育てている花がないとき。11こまで）
+    if (!growingFlower() && shrine.flowers.length < SHRINE_CHARS.length && !shrineStay.seeded && stay >= SEED_STAY_MS) {
+      shrineStay.seeded = true;
+      shrine.visited[key] = 1; // この神社の今日のポイントは、種の分でおしまい
+      shrine.flowers.push({ char: shrine.flowers.length, seedAt: now, points: 0, bloomAt: null, shrine: sh.name });
+      shrine.log.push({ t: now, type: 'seed', shrine: sh.name });
+      changed = true;
+      showToast('⛩ ふしぎな種を 手に入れた！<small>' + sh.name + '</small>');
+    }
+    if (changed) { save(); renderShrine(); }
+    // いまの様子
+    const g = growingFlower();
+    let msg = '⛩ ' + sh.name + 'にいます';
+    if (!shrine.visited[key] && shrine.flowers.length && stay < POINT_STAY_MS) msg += '・あと' + mmss(POINT_STAY_MS - stay) + 'でポイント';
+    else if (!g && shrine.flowers.length < SHRINE_CHARS.length && !shrineStay.seeded) msg += '・あと' + mmss(SEED_STAY_MS - stay) + 'で種';
+    else if (shrineStay.seeded) msg += '・種をもらいました';
+    else if (shrine.visited[key]) msg += '・今日のポイントはもらいました';
+    note.textContent = msg;
+    note.hidden = false;
+  }
+
+  // 種〜花の絵（色は神さまに合わせる）
+  function plantSvg(stage, c) {
+    const soil = '<ellipse cx="30" cy="75" rx="22" ry="5" fill="#8e6440"/>';
+    const leaf = (x, y, flip) => '<path d="M30 ' + y + ' q' + (flip ? -14 : 14) + ' -10 ' + (flip ? -16 : 16) + ' -2 q' + (flip ? 2 : -2) + ' 8 ' + (flip ? 16 : -16) + ' 2z" fill="' + c.leaf + '"/>';
+    const line = 'stroke="rgba(0,0,0,0.25)" stroke-width="0.8"';
+    if (stage === 0) return '<svg viewBox="0 0 60 80" aria-hidden="true">' + soil + '<ellipse cx="30" cy="70" rx="6" ry="4.5" fill="' + c.center + '" ' + line + '/></svg>';
+    const top = [0, 56, 44, 36][stage];
+    let svg = '<svg viewBox="0 0 60 80" aria-hidden="true"><path d="M30 74 V' + top + '" stroke="' + c.leaf + '" stroke-width="3" stroke-linecap="round"/>' +
+      leaf(0, stage === 1 ? 62 : 64, false) + leaf(0, stage === 1 ? 60 : 56, true) + soil;
+    if (stage === 2) svg += '<path d="M30 ' + (top + 2) + ' c-7 -4 -7 -14 0 -20 c7 6 7 16 0 20z" fill="' + c.petal + '" ' + line + '/>';
+    if (stage === 3) {
+      for (let i = 0; i < 6; i++) svg += '<ellipse cx="30" cy="' + (top - 11) + '" rx="6" ry="10" fill="' + c.petal + '" ' + line + ' transform="rotate(' + (i * 60) + ' 30 ' + top + ')"/>';
+      svg += '<circle cx="30" cy="' + top + '" r="6.5" fill="' + c.center + '" ' + line + '/>';
+    }
+    return svg + '</svg>';
+  }
+  function renderShrine() {
+    const total = SHRINE_CHARS.length;
+    document.getElementById('shrineCount').textContent = '種 ' + shrine.flowers.length + ' / ' + total + '・' + shrine.points + 'ポイント';
+    let html = shrine.flowers.map((f) => {
+      const c = SHRINE_CHARS[f.char];
+      const st = flowerStage(f);
+      return '<div class="shrine-slot" title="' + (f.bloomAt ? c.name : '') + '">' +
+        (st === 3 ? '<img src="chars/shrine/' + c.img + '.png" alt="' + c.name + '">' : '<span class="slot-pt">' + f.points + '/' + BLOOM_STEPS[2] + '</span>') +
+        plantSvg(st, c) + '</div>';
+    }).join('');
+    if (shrine.flowers.length < total && !growingFlower()) html += '<div class="shrine-slot empty"><span class="slot-pt">？</span>' + plantSvg(0, { center: '#999', leaf: '#999', petal: '#999' }) + '</div>';
+    const garden = document.getElementById('shrineGarden');
+    garden.innerHTML = html;
+    garden.scrollLeft = garden.scrollWidth; // いま育てている花が見えるように
+    const g = growingFlower();
+    let text;
+    if (!shrine.flowers.length) text = '神社に<b>3分</b>いると、<b>ふしぎな種</b>が手に入ります。花が咲くと、神さまが座りにきます。';
+    else if (g) text = '神社に<b>1分</b>いるたびに1ポイント（同じ神社は1日1回）。あと<b>' + (BLOOM_STEPS[2] - g.points) + 'ポイント</b>で花が咲きます。';
+    else if (shrine.flowers.length < total) text = '花が咲きました！ 神社に<b>3分</b>いると、次の種が手に入ります。';
+    else text = '11の花が全部咲きました。神さまが勢ぞろい！';
+    text += shrine.points >= CAT_POINTS ? '<br>🐈 ネコが いっしょに歩いてくれます（道の再生で見られます）'
+      : shrine.flowers.length ? '<br>あと<b>' + (CAT_POINTS - shrine.points) + 'ポイント</b>で、だれかが ついてくるかも…' : '';
+    document.getElementById('shrineText').innerHTML = text;
   }
 
   // ===== 成長の記録 =====
@@ -821,6 +1034,11 @@
         if (streak === GOD_DAYS) events.push({ time: day + 86399500, form: 'god', text: '神になった（' + GOD_DAYS + '日つづけて ' + DAILY_GOAL_STEPS.toLocaleString() + '歩）' });
       }
     }
+    for (const e of shrine.log) {
+      if (e.type === 'seed') events.push({ time: e.t, icon: '🌰', text: e.shrine + 'で ふしぎな種を手に入れた' });
+      if (e.type === 'bloom') events.push({ time: e.t, kami: 'chars/shrine/' + SHRINE_CHARS[e.char].img + '.png', text: '花が咲いて ' + SHRINE_CHARS[e.char].name + 'が座った' });
+      if (e.type === 'cat') events.push({ time: e.t, kami: 'chars/cat_sit.png', text: 'ネコが ついてくるようになった' });
+    }
     return events.sort((a, b) => a.time - b.time);
   }
   function recordDate(time) {
@@ -834,8 +1052,8 @@
     const next = STAGES.find((s) => s.level === getStage(steps).level + 1);
     let html = events.map((e) => {
       const look = e.form && WALKER_LOOKS[e.form];
-      const icon = look ? '<img src="' + look.src + '" alt="">' : e.icon;
-      return '<li' + (e.form ? ' class="form"' : '') + '><span class="record-icon" aria-hidden="true">' + icon + '</span><span class="record-body">' +
+      const icon = look ? '<img src="' + look.src + '" alt="">' : e.kami ? '<img src="' + e.kami + '" alt="">' : e.icon;
+      return '<li' + (e.form ? ' class="form"' : e.kami ? ' class="kami"' : '') + '><span class="record-icon" aria-hidden="true">' + icon + '</span><span class="record-body">' +
         '<span class="record-date">' + recordDate(e.time) + (e.level > 1 ? '・Lv' + e.level : '') + '</span>' +
         '<span class="record-text">' + e.text + '</span></span></li>';
     }).join('');
@@ -993,6 +1211,8 @@
     watchPosition();
     keepScreenOn();
     tickTimer = setInterval(renderDay, 15000); // 時間の表示を少しずつ進める
+    shrineTimer = setInterval(() => { if (lastFix) checkShrine(lastFix[0], lastFix[1]); }, 5000); // 神社で立ち止まっている間も時間を数える
+    loadShrines(current.points.length ? current.points[current.points.length - 1] : null);
     setRecordingUI(true);
     save();
     renderDay();
@@ -1009,6 +1229,8 @@
       return;
     }
     showNote('');
+    lastFix = [latitude, longitude];
+    checkShrine(latitude, longitude);
     const last = current.points[current.points.length - 1];
     if (last) {
       const d = distanceM(last, point);
@@ -1045,6 +1267,9 @@
     if (watchId !== null) navigator.geolocation.clearWatch(watchId);
     watchId = null;
     clearInterval(tickTimer);
+    clearInterval(shrineTimer);
+    shrineStay = null;
+    document.getElementById('shrineNote').hidden = true;
     if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
     if (liveLine) { map.removeLayer(liveLine); liveLine = null; }
     let walkedSteps = 0;
@@ -1270,6 +1495,8 @@
     map.setView(points[0], REPLAY_ZOOM, { animate: false });
     let line = L.polyline([points[0]], { color: pathColor(), weight: 6, lineCap: 'round' }).addTo(dayLayer);
     walker = L.marker(points[0], { icon: walkerIcon(), zIndexOffset: 1000 }).addTo(dayLayer);
+    // 神社ポイントがたまっていたら、ネコが少しうしろをついてくる
+    const cat = shrine.points >= CAT_POINTS ? L.marker(points[0], { icon: catIcon, zIndexOffset: 900 }).addTo(dayLayer) : null;
 
     // breaks に入っている番号の点では、前の点と線をつなげない
 
@@ -1317,6 +1544,7 @@
         faceWalker(a, b);
         walker.setLatLng(pos);
       }
+      if (cat) moveCat(Math.max(0, traveled - CAT_GAP_M));
       followWalker();
       if (drawn < total) {
         replayTimer = requestAnimationFrame(frame);
@@ -1325,8 +1553,22 @@
         document.getElementById('replayButton').textContent = '▶ この日の道を再生';
       }
     }
+    // ネコを、道にそって d メートルの所に置く
+    function moveCat(d) {
+      let i = 1;
+      while (i < total - 1 && cum[i] < d) i++;
+      const a = points[i - 1], b = points[i];
+      const seg = cum[i] - cum[i - 1];
+      const f = seg > 0 ? Math.min(1, Math.max(0, (d - cum[i - 1]) / seg)) : 1;
+      cat.setLatLng([a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]);
+      const el = cat.getElement && cat.getElement();
+      if (el && el.firstChild) el.firstChild.classList.toggle('west', b[1] < a[1]);
+    }
     replayTimer = requestAnimationFrame(frame);
   }
+  const CAT_GAP_M = 7; // ネコは人の 7m うしろ
+  const catIcon = L.divIcon({ className: '', iconSize: [34, 28], iconAnchor: [17, 26],
+    html: '<div class="cat-icon" style="width:34px;height:28px"><img src="chars/cat_sit.png" alt="ついてくるネコ"></div>' });
 
   // 人がいつも地図の真ん中にいるように、地図を少しずつ動かす
   function followWalker() {
