@@ -265,6 +265,8 @@
     85% { opacity: 1; }
     100% { opacity: 0; transform: translateY(-8px); }
   }
+  .demo-bar { margin: 0; padding: 8px 12px; border-radius: 12px; background: #fff3c4; color: #5a4500; font-size: 0.85rem; font-weight: 700; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .demo-bar a { color: inherit; }
   /* ===== 神社の花畑 ===== */
   .shrine { border: 2px solid var(--track); border-radius: 18px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
   .shrine-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
@@ -370,6 +372,7 @@
   </div>
 
   <section class="panel">
+    <p class="demo-bar" id="demoBar" hidden>🔍 サンプル表示中です（記録は保存されません）<a href="./">ふつうの画面へ</a></p>
     <div class="day-nav">
       <button class="round" id="prevDay" type="button" aria-label="前の日">‹</button>
       <h1 id="dayTitle">今日</h1>
@@ -558,7 +561,10 @@
   let shrine = { flowers: [], points: 0, visited: {}, log: [] }; // 神社の花畑（flowers: { char, seedAt, points, bloomAt }）
   let form = 'normal';           // いまのすがた：'normal'（ふつう）/ 'god'（神）/ 'zou'（象人間）
 
+  // ?demo をつけて開くと、サンプルの記録で動く（スマホの本当の記録は読まないし、書きかえない）
+  const DEMO = /[?&]demo/.test(location.search);
   function save() {
+    if (DEMO) return;
     try { localStorage.setItem(SAVE_KEY, JSON.stringify({ walks, current, form, shrine })); } catch (e) {}
   }
   function load() {
@@ -1002,6 +1008,40 @@
     text += shrine.points >= CAT_POINTS ? '<br>🐈 ネコが いっしょに歩いてくれます（道の再生で見られます）'
       : shrine.flowers.length ? '<br>あと<b>' + (CAT_POINTS - shrine.points) + 'ポイント</b>で、だれかが ついてくるかも…' : '';
     document.getElementById('shrineText').innerHTML = text;
+  }
+
+  // サンプル用の記録：30日ぶんの散歩と、神さまが10人座った花畑
+  function loadDemo() {
+    const today = startOfDay(Date.now());
+    const mk = (start, steps, lat, lng, zig) => {
+      const pts = [];
+      let la = lat, ln = lng, t = start, left = steps * STRIDE_M;
+      for (let i = 0; left > 0; i++) {
+        pts.push([la, ln, t]);
+        const leg = Math.floor(i / 8) % 4;
+        const dy = zig ? [1, 0, 1, 0][leg] : 1, dx = zig ? [0, 1, 0, 1][leg] : 0;
+        la += dy * 9 / 111320; ln += dx * 9 / 91000; t += 8000; left -= 9;
+      }
+      pts.push([la, ln, t]);
+      return { id: start, start, end: t, points: pts, distance: 0 };
+    };
+    walks = [];
+    const plan = [6200, 4300, 7800, 5600, 3900, 8800, 6100, 4700, 9300, 5200, 6600, 4100, 7200, 5900, 13600, 4800, 6900, 5300, 3600, 8100, 6400, 4600, 7700, 5800, 4200, 9000, 6300, 5100, 4400];
+    plan.forEach((st, i) => walks.push(mk(today - (plan.length - i) * 86400000 + 9 * 3600000, st, 35.70 + i * 0.001, 139.70, false)));
+    walks.push(mk(Date.now() - 2 * 3600000, 2400, 35.6812, 139.7671, true));
+    walks = walks.map(cleanWalk);
+    const fl = [], log = [];
+    for (let i = 0; i < 11; i++) {
+      const seedAt = today - (24 - i * 2) * 86400000 + 10 * 3600000;
+      const bloomAt = i < 10 ? seedAt + 1.5 * 86400000 : null;
+      fl.push({ char: i, seedAt, points: i < 10 ? BLOOM_STEPS[2] : 4, bloomAt, shrine: 'サンプル神社' });
+      log.push({ t: seedAt, type: 'seed', shrine: 'サンプル神社' });
+      if (bloomAt) log.push({ t: bloomAt, type: 'bloom', char: i, shrine: 'サンプル神社' });
+      if (i === 2) log.push({ t: seedAt + 86400000, type: 'cat' });
+    }
+    shrine = { flowers: fl, points: 64, visited: {}, log };
+    form = judgeForm();
+    document.getElementById('demoBar').hidden = false;
   }
 
   // ===== 成長の記録 =====
@@ -1613,7 +1653,7 @@
   });
 
   // ===== はじめに =====
-  load();
+  if (DEMO) loadDemo(); else load();
   save();
   if (current) {
     // 記録中にページが閉じられていたので、続きから記録する
