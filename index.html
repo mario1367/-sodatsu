@@ -266,10 +266,19 @@
     100% { opacity: 0; transform: translateY(-8px); }
   }
   .map-stop {
-    position: absolute; z-index: 760; right: 12px; bottom: 36px; border: none; border-radius: 999px; padding: 10px 16px;
+    position: absolute; z-index: 760; right: 12px; bottom: 86px; border: none; border-radius: 999px; padding: 10px 16px;
     background: var(--card); color: var(--ink); font-family: var(--font); font-weight: 700; font-size: 0.95rem;
     box-shadow: 0 2px 10px rgba(0,0,0,0.2); cursor: pointer;
   }
+  .speed-pick {
+    position: absolute; z-index: 760; left: 12px; bottom: 36px; display: flex; background: var(--card); border-radius: 999px; padding: 3px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+  }
+  .speed-pick button {
+    border: none; background: transparent; color: var(--ink-soft); font-family: var(--font); font-weight: 700; font-size: 0.82rem;
+    padding: 7px 9px; border-radius: 999px; cursor: pointer; white-space: nowrap;
+  }
+  .speed-pick button[aria-pressed="true"] { background: var(--go); color: var(--on-button); }
   .walks li.all span:first-child { font-weight: 700; }
   .demo-bar { margin: 0; padding: 8px 12px; border-radius: 12px; background: #fff3c4; color: #5a4500; font-size: 0.85rem; font-weight: 700; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
   .demo-bar a { color: inherit; }
@@ -386,6 +395,9 @@
     <p class="map-note" id="mapNote" hidden></p>
     <p class="shrine-note" id="shrineNote" role="status" hidden></p>
     <button class="map-stop" id="mapStop" type="button" hidden>■ 再生をとめる</button>
+    <div class="speed-pick" id="speedPick" role="group" aria-label="再生の速さ" hidden>
+      <button type="button" data-speed="slow">🐢 ゆっくり</button><button type="button" data-speed="normal">🚶 ふつう</button><button type="button" data-speed="fast">🐇 はやい</button>
+    </div>
   </div>
 
   <section class="panel">
@@ -1583,13 +1595,16 @@
     // 一定の速さで進む。長い道でも 18〜120秒 におさまるように速さを決める
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const durationMs = reduce || meters === 0 ? 0 : Math.min(120000, Math.max(18000, meters / 15 * 1000));
-    const start = performance.now();
+    let last = performance.now(), traveledSoFar = 0;
     let drawn = 1;     // 線に入れ終わった点の数
     let hasTip = false; // 線の先っぽ（点と点の途中）を入れているか
     setReplayUI(true);
 
     function frame(now) {
-      const traveled = durationMs === 0 ? meters : Math.min(meters, (now - start) / durationMs * meters);
+      // 速さボタン（ゆっくり・ふつう・はやい）で、進み方を途中からでも変えられる
+      traveledSoFar += (now - last) / durationMs * meters * REPLAY_SPEEDS[replaySpeed];
+      last = now;
+      const traveled = durationMs === 0 ? meters : Math.min(meters, traveledSoFar);
       // 通りすぎた点を線に入れる
       while (drawn < total && cum[drawn] <= traveled) {
         const p = points[drawn];
@@ -1638,6 +1653,15 @@
     }
     replayTimer = requestAnimationFrame(frame);
   }
+  const REPLAY_SPEEDS = { slow: 0.5, normal: 1, fast: 2.5 }; // ふつう = これまでの速さ
+  let replaySpeed = 'normal';
+  try { replaySpeed = localStorage.getItem('aruku-speed') || 'normal'; } catch (e) {}
+  if (!REPLAY_SPEEDS[replaySpeed]) replaySpeed = 'normal';
+  function setReplaySpeed(name) {
+    replaySpeed = name;
+    try { localStorage.setItem('aruku-speed', name); } catch (e) {}
+    document.querySelectorAll('#speedPick button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.speed === name)));
+  }
   const CAT_GAP_M = 7; // ネコは人の 7m うしろ
   const catIcon = L.divIcon({ className: '', iconSize: [34, 28], iconAnchor: [17, 26],
     html: '<div class="cat-icon" style="width:34px;height:28px"><img src="chars/cat_sit.png" alt="ついてくるネコ"></div>' });
@@ -1655,6 +1679,7 @@
   }
   function setReplayUI(playing) {
     document.getElementById('mapStop').hidden = !playing;
+    document.getElementById('speedPick').hidden = !playing;
     if (playing) document.getElementById('replayButton').textContent = '■ 再生をとめる';
     else if (!current) renderDay();
   }
@@ -1680,6 +1705,8 @@
     document.getElementById('replayButton').setAttribute('aria-expanded', String(!listEl.hidden));
   });
   document.getElementById('mapStop').addEventListener('click', () => stopReplay());
+  document.getElementById('speedPick').addEventListener('click', (e) => { const b = e.target.closest('button[data-speed]'); if (b) setReplaySpeed(b.dataset.speed); });
+  setReplaySpeed(replaySpeed);
   // 一覧の散歩を押すと、その散歩だけ再生
   function onWalkPick(event) {
     const item = event.target.closest('li[data-index]');
