@@ -265,6 +265,12 @@
     85% { opacity: 1; }
     100% { opacity: 0; transform: translateY(-8px); }
   }
+  .map-stop {
+    position: absolute; z-index: 760; right: 12px; bottom: 36px; border: none; border-radius: 999px; padding: 10px 16px;
+    background: var(--card); color: var(--ink); font-family: var(--font); font-weight: 700; font-size: 0.95rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2); cursor: pointer;
+  }
+  .walks li.all span:first-child { font-weight: 700; }
   .demo-bar { margin: 0; padding: 8px 12px; border-radius: 12px; background: #fff3c4; color: #5a4500; font-size: 0.85rem; font-weight: 700; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
   .demo-bar a { color: inherit; }
   /* 成長の森に来た神さま（神社の花） */
@@ -379,6 +385,7 @@
     </section>
     <p class="map-note" id="mapNote" hidden></p>
     <p class="shrine-note" id="shrineNote" role="status" hidden></p>
+    <button class="map-stop" id="mapStop" type="button" hidden>■ 再生をとめる</button>
   </div>
 
   <section class="panel">
@@ -388,6 +395,10 @@
       <h1 id="dayTitle">今日</h1>
       <button class="round" id="nextDay" type="button" aria-label="次の日">›</button>
     </div>
+    <div class="sub-row">
+      <button class="sub-button" id="replayButton" type="button" aria-expanded="false" aria-controls="walkList">▶ この日の道を再生</button>
+    </div>
+    <ul class="walks" id="walkList" hidden></ul>
 
     <div class="stats">
       <div><strong id="statSteps">0</strong><span>歩（めやす）</span></div>
@@ -412,10 +423,6 @@
 
     <p class="live" id="liveText" hidden>記録中</p>
     <button class="main-button" id="mainButton" type="button">🚶 歩きはじめる</button>
-    <div class="sub-row">
-      <button class="sub-button" id="replayButton" type="button">▶ この日の道を再生</button>
-    </div>
-    <ul class="walks" id="walkList"></ul>
     <p class="hint" id="hint">歩いている間は、このページを開いたまま画面をつけておくのがいちばん確実です。ほかのアプリを使って記録が止まっても、このページに戻れば続きから記録します。</p>
   </section>
 </div>
@@ -733,7 +740,9 @@
     renderShrine();
 
     // 一覧
-    document.getElementById('walkList').innerHTML = list.map((w, i) =>
+    document.getElementById('walkList').innerHTML = (list.length > 1
+      ? '<li class="all" tabindex="0" role="button" data-index="all"><span>▶ 全部つなげて再生</span><span>' + list.length + '回ぶん</span></li>' : '') +
+      list.map((w, i) =>
       '<li tabindex="0" role="button" data-index="' + i + '" aria-label="この散歩を再生"><span>▶ ' + clock(w.start) + ' 〜 ' + clock(w.end) + '</span><span>' +
       (w.distance / 1000).toFixed(2) + ' km・約' + Math.round(w.distance / STRIDE_M).toLocaleString() + '歩</span></li>'
     ).join('');
@@ -745,7 +754,8 @@
     replayButton.disabled = list.length === 0 || current !== null;
     // 押せないときは、その理由をボタンに書く
     if (!replayTimer) replayButton.textContent = current !== null ? '記録中は再生できません'
-      : list.length === 0 ? 'この日の記録はまだありません' : '▶ この日の道を再生';
+      : list.length === 0 ? 'この日の記録はまだありません' : '▶ この日の道を再生' + (list.length > 1 ? '（' + list.length + '回）' : '');
+    if (!list.length || current) closeWalkList();
     document.getElementById('hint').hidden = !isToday;
 
     // 地図に線を引く
@@ -1534,6 +1544,8 @@
     let list = walksOfDay(viewDay);
     if (only !== undefined) list = [list[only]];
     if (!list.length || !list[0]) return;
+    closeWalkList();
+    window.scrollTo({ top: 0, behavior: 'smooth' }); // 地図が見えるところまで上に戻る
     showView('map');
     stopReplay();
     renderDay();
@@ -1574,7 +1586,7 @@
     const start = performance.now();
     let drawn = 1;     // 線に入れ終わった点の数
     let hasTip = false; // 線の先っぽ（点と点の途中）を入れているか
-    document.getElementById('replayButton').textContent = '■ 再生をとめる';
+    setReplayUI(true);
 
     function frame(now) {
       const traveled = durationMs === 0 ? meters : Math.min(meters, (now - start) / durationMs * meters);
@@ -1610,7 +1622,7 @@
         replayTimer = requestAnimationFrame(frame);
       } else {
         replayTimer = null;
-        document.getElementById('replayButton').textContent = '▶ この日の道を再生';
+        setReplayUI(false);
       }
     }
     // ネコを、道にそって d メートルの所に置く
@@ -1639,7 +1651,16 @@
     if (replayTimer) cancelAnimationFrame(replayTimer);
     replayTimer = null;
     walker = null;
-    document.getElementById('replayButton').textContent = '▶ この日の道を再生';
+    setReplayUI(false);
+  }
+  function setReplayUI(playing) {
+    document.getElementById('mapStop').hidden = !playing;
+    if (playing) document.getElementById('replayButton').textContent = '■ 再生をとめる';
+    else if (!current) renderDay();
+  }
+  function closeWalkList() {
+    document.getElementById('walkList').hidden = true;
+    document.getElementById('replayButton').setAttribute('aria-expanded', 'false');
   }
 
   // ===== ボタン =====
@@ -1650,26 +1671,32 @@
     showView('map');
     if (current) stopWalk(); else startWalk();
   });
+  // 再生ボタン：散歩が1回ならすぐ再生。2回以上なら、時間の一覧を出して選んでもらう
   document.getElementById('replayButton').addEventListener('click', () => {
-    if (replayTimer) { stopReplay(); renderDay(); } else { replayDay(); }
+    if (replayTimer) { stopReplay(); return; }
+    const listEl = document.getElementById('walkList');
+    if (walksOfDay(viewDay).length === 1) { replayDay(); return; }
+    listEl.hidden = !listEl.hidden;
+    document.getElementById('replayButton').setAttribute('aria-expanded', String(!listEl.hidden));
   });
+  document.getElementById('mapStop').addEventListener('click', () => stopReplay());
   // 一覧の散歩を押すと、その散歩だけ再生
   function onWalkPick(event) {
     const item = event.target.closest('li[data-index]');
     if (!item || current) return;
     if (event.type === 'keydown' && event.key !== 'Enter' && event.key !== ' ') return;
     event.preventDefault();
-    replayDay(Number(item.dataset.index));
+    replayDay(item.dataset.index === 'all' ? undefined : Number(item.dataset.index));
   }
   document.getElementById('walkList').addEventListener('click', onWalkPick);
   document.getElementById('recordButton').addEventListener('click', openRecord);
   document.getElementById('recordClose').addEventListener('click', () => { document.getElementById('recordPage').hidden = true; });
   document.getElementById('walkList').addEventListener('keydown', onWalkPick);
   document.getElementById('prevDay').addEventListener('click', () => {
-    stopReplay(); viewDay -= 86400000; viewDay = startOfDay(viewDay + 3600000); renderDay();
+    stopReplay(); closeWalkList(); viewDay -= 86400000; viewDay = startOfDay(viewDay + 3600000); renderDay();
   });
   document.getElementById('nextDay').addEventListener('click', () => {
-    stopReplay(); viewDay = startOfDay(viewDay + 86400000 + 3600000); renderDay();
+    stopReplay(); closeWalkList(); viewDay = startOfDay(viewDay + 86400000 + 3600000); renderDay();
   });
 
   // ===== はじめに =====
