@@ -336,8 +336,8 @@
     display: grid; place-items: center; font-size: 1.4rem;
   }
   .record-list li.form .record-icon { border-color: #d4a72c; }
-  .record-list li.form .record-icon img, .record-list li.kami .record-icon img { width: 34px; height: 34px; object-fit: contain; }
-  .record-list li.kami .record-icon { border-color: #b3262d; }
+  .record-list li.form .record-icon img, .record-list li.kami-event .record-icon img { width: 34px; height: 34px; object-fit: contain; }
+  .record-list li.kami-event .record-icon { border-color: #b3262d; }
   .record-body { background: var(--card); border-radius: 14px; padding: 9px 12px; display: flex; flex-direction: column; gap: 1px; }
   .record-date { font-size: 0.8rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
   .record-text { font-weight: 700; }
@@ -1136,7 +1136,7 @@
     let html = events.map((e) => {
       const look = e.form && WALKER_LOOKS[e.form];
       const icon = look ? '<img src="' + look.src + '" alt="">' : e.kami ? '<img src="' + e.kami + '" alt="">' : e.icon;
-      return '<li' + (e.form ? ' class="form"' : e.kami ? ' class="kami"' : '') + '><span class="record-icon" aria-hidden="true">' + icon + '</span><span class="record-body">' +
+      return '<li' + (e.form ? ' class="form"' : e.kami ? ' class="kami-event"' : '') + '><span class="record-icon" aria-hidden="true">' + icon + '</span><span class="record-body">' +
         '<span class="record-date">' + recordDate(e.time) + (e.level > 1 ? '・Lv' + e.level : '') + '</span>' +
         '<span class="record-text">' + e.text + '</span></span></li>';
     }).join('');
