@@ -269,11 +269,12 @@
   .demo-bar a { color: inherit; }
   /* 成長の森に来た神さま（神社の花） */
   .kami-layer { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
-  .kami { position: absolute; width: 64px; height: 124px; translate: -50% 0; }
-  .kami svg { position: absolute; left: 2px; bottom: 0; width: 60px; height: 80px; overflow: visible; }
-  .kami img { position: absolute; left: 50%; bottom: 46px; translate: -50% 0; height: 58px; max-width: 88px; object-fit: contain; object-position: bottom;
+  .world-title { z-index: 6; } /* 神さまが大きくても、題名は見えるように */
+  .kami { position: absolute; width: 124px; height: 244px; translate: -50% 0; }
+  .kami svg { position: absolute; left: 2px; bottom: 0; width: 120px; height: 160px; overflow: visible; }
+  .kami img { position: absolute; left: 50%; bottom: 90px; translate: -50% 0; height: 116px; max-width: 170px; object-fit: contain; object-position: bottom;
     filter: drop-shadow(0 1px 1px rgba(0,0,0,0.3)); animation: kami-sway 3.4s ease-in-out infinite alternate; transform-origin: 50% 100%; }
-  .world.picture-mode .kami-layer { display: none; } /* 大きな絵の中には、絵に描きこむ */
+  .world.picture-mode .kami-layer { display: none; } /* Lv11〜の絵の場面には出さない */
   @media (prefers-reduced-motion: reduce) { .kami img { animation: none; } }
   /* ===== 神社の花畑 ===== */
   .shrine { border: 2px solid var(--track); border-radius: 18px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
@@ -995,39 +996,7 @@
     return svg + '</svg>';
   }
   // 咲いた花と神さまを、成長の森の手前に並べる（咲いた順に左から）
-  const KAMI_SPOTS = [[11, 1], [89, 1], [37, 1], [63, 1], [24, 9], [76, 9], [50, 9], [9, 17], [91, 17], [35, 17], [65, 17]];
-  // 大きな絵（Lv11〜）の中で、神さまの花を置く場所（絵の中の x, y。花の根もと）
-  const KAMI_PICTURE_SPOTS = [[592, 524], [655, 505], [432, 490], [345, 428], [262, 614], [425, 608], [548, 630], [458, 562], [62, 134], [252, 354], [648, 254]];
-  const kamiImages = {};
-  function kamiImage(src) {
-    if (!kamiImages[src]) {
-      const im = new Image();
-      im.onload = () => { if (document.getElementById('world').classList.contains('picture-mode')) renderWorld(); };
-      im.src = src;
-      kamiImages[src] = im;
-    }
-    return kamiImages[src];
-  }
-  // 大きな絵の上に、咲いた花と神さまを描く
-  function drawKamiOnPicture(ctx, dx, dy, scale) {
-    shrine.flowers.filter((f) => f.bloomAt).forEach((f, i) => {
-      const c = SHRINE_CHARS[f.char];
-      const [x, y] = KAMI_PICTURE_SPOTS[i % KAMI_PICTURE_SPOTS.length];
-      const flower = kamiImage('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
-        plantSvg(3, c).replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="60" height="80" ')));
-      const kami = kamiImage('chars/shrine/' + c.img + '.png');
-      // 花の大きさ（絵の中で 39×52）。絵全体が見えて小さくなるときも、画面で 56px より小さくしない
-      const fh = Math.max(52 * scale, 56 * (window.devicePixelRatio || 1)), fw = fh * 0.75;
-      const k = fh / 52;
-      const X = dx + x * scale, Y = dy + y * scale;
-      if (flower.complete && flower.naturalWidth) ctx.drawImage(flower, X - fw / 2, Y - fh, fw, fh);
-      if (kami.complete && kami.naturalWidth) {
-        let kh = 40 * k, kw = kh * kami.naturalWidth / kami.naturalHeight;
-        if (kw > 62 * k) { kw = 62 * k; kh = kw * kami.naturalHeight / kami.naturalWidth; }
-        ctx.drawImage(kami, X - kw / 2, Y - fh * 0.56 - kh, kw, kh);
-      }
-    });
-  }
+  const KAMI_SPOTS = [[12, -2], [88, -2], [37, -2], [63, -2], [24, 12], [76, 12], [50, 12], [8, 20], [92, 20], [20, 30], [80, 30]];
   function renderKami() {
     document.getElementById('kamiLayer').innerHTML = shrine.flowers.filter((f) => f.bloomAt).map((f, i) => {
       const c = SHRINE_CHARS[f.char];
@@ -1197,7 +1166,7 @@
     ctx.globalAlpha = level >= 20 ? 1 : 0.13;
     ctx.drawImage(pictureImage, dx, dy, iw * scale, ih * scale);
     ctx.globalAlpha = 1;
-    if (level >= 20) { drawKamiOnPicture(ctx, dx, dy, scale); return; }
+    if (level >= 20) return;
     // 見えた場所だけ、はっきり描く（ふちはぼかす）
     const mask = document.createElement('canvas');
     mask.width = canvas.width; mask.height = canvas.height;
@@ -1211,7 +1180,6 @@
     m.globalCompositeOperation = 'source-in';
     m.drawImage(pictureImage, dx, dy, iw * scale, ih * scale);
     ctx.drawImage(mask, 0, 0);
-    drawKamiOnPicture(ctx, dx, dy, scale);
   }
 
   // showStage を渡すと、その段階の見た目で描く（新しい世界に入る前の演出用）
