@@ -455,6 +455,7 @@
       <div class="shrine-head"><span>⛩ 神社の花畑</span><strong id="shrineCount">種 0 / 11</strong></div>
       <div class="shrine-garden" id="shrineGarden" aria-label="神社の花"></div>
       <p class="shrine-text" id="shrineText"></p>
+      <button class="text-button" id="shrineAdd" type="button" hidden>⛩ いる場所を神社として登録する</button>
     </div>
 
     <p class="hint" id="hint">歩いている間は、このページを開いたまま画面をつけておくのがいちばん確実です。ほかのアプリを使って記録が止まっても、このページに戻れば続きから記録します。</p>
@@ -614,7 +615,7 @@
   // 4つ目が 1 の点は「乗り物で移動してきた点」。その前の点とは線をつながず、距離にも入れない
   let walks = [];
   let current = null;            // 記録中の散歩（記録していないときはnull）
-  let shrine = { flowers: [], points: 0, visited: {}, log: [] }; // 神社の花畑（flowers: { char, seedAt, points, bloomAt }）
+  let shrine = { flowers: [], points: 0, visited: {}, log: [], custom: [] }; // 神社の花畑（flowers: { char, seedAt, points, bloomAt }、custom: 自分で登録した神社）
   let form = 'normal';           // いまのすがた：'normal'（ふつう）/ 'god'（神）/ 'zou'（象人間）
 
   // ?demo をつけて開くと、サンプルの記録で動く（スマホの本当の記録は読まないし、書きかえない）
@@ -1017,11 +1018,29 @@
     };
     tryUrl(0);
   }
+  // 地図データの神社と、自分で登録した神社
+  function allShrines() { return shrineList.concat(shrine.custom || []); }
+  // 地図データにない神社は、その場で登録できる（神社の近くにいないときだけボタンを出す）
+  function updateShrineAdd(near) {
+    document.getElementById('shrineAdd').hidden = !(current && lastFix && !near);
+  }
+  document.getElementById('shrineAdd').addEventListener('click', () => {
+    if (!current || !lastFix || nearShrine(lastFix[0], lastFix[1], lastFix[2])) return;
+    const name = (prompt('神社の名前を入れてください', '') || '').trim();
+    if (!name) return;
+    if (!shrine.custom) shrine.custom = [];
+    shrine.custom.push({ id: 'u' + Date.now(), name: name.slice(0, 30), lat: lastFix[0], lng: lastFix[1], box: null });
+    save();
+    drawShrines();
+    showToast('⛩ ' + name.slice(0, 30) + 'を 登録しました<small>ここで時間を数えはじめます</small>');
+    checkShrine(lastFix[0], lastFix[1], lastFix[2]);
+  });
+
   // 知っている神社を地図に ⛩ で出す（点線の丸が「神社にいる」になる範囲）
   const shrineLayer = L.layerGroup().addTo(map);
   function drawShrines() {
     shrineLayer.clearLayers();
-    for (const sh of shrineList) {
+    for (const sh of allShrines()) {
       if (sh.box) {
         const pad = 20 / 111320;
         L.rectangle([[sh.box[0] - pad, sh.box[1] - pad * 1.25], [sh.box[2] + pad, sh.box[3] + pad * 1.25]],
@@ -1036,14 +1055,14 @@
   // いちばん近い神社と、「神社にいる」範囲までの残りの距離
   function closestShrine(lat, lng, acc) {
     let best = null, bestD = Infinity;
-    for (const sh of shrineList) { const d = distanceM([lat, lng], [sh.lat, sh.lng]); if (d < bestD) { best = sh; bestD = d; } }
+    for (const sh of allShrines()) { const d = distanceM([lat, lng], [sh.lat, sh.lng]); if (d < bestD) { best = sh; bestD = d; } }
     return best && { sh: best, left: Math.max(0, bestD - SHRINE_RADIUS_M - Math.min(acc || 0, 60) / 2) };
   }
   function nearShrine(lat, lng, acc) {
     let best = null, bestD = Infinity;
     // GPSの精度がよくないときは、そのぶん少し（30mまで）広めに見る
     const extra = Math.min(acc || 0, 60) / 2;
-    for (const sh of shrineList) {
+    for (const sh of allShrines()) {
       // 境内が広い神社は、その四角の中（＋20m）なら「いる」
       const pad = (20 + extra) / 111320;
       const inBox = sh.box && lat >= sh.box[0] - pad && lat <= sh.box[2] + pad && lng >= sh.box[1] - pad * 1.25 && lng <= sh.box[3] + pad * 1.25;
@@ -1064,6 +1083,7 @@
     const now = Date.now();
     let sh = nearShrine(lat, lng, acc);
     const inside = !!sh;
+    updateShrineAdd(inside);
     if (!sh) {
       // 少しのあいだ外に出た判定になっても（GPSのブレ）、同じ神社にいることにする
       if (!shrineStay || now - shrineStay.seen > SHRINE_LEAVE_MS) {
@@ -1074,7 +1094,7 @@
         else note.hidden = true;
         return;
       }
-      sh = shrineList.find((x) => x.id === shrineStay.id);
+      sh = allShrines().find((x) => x.id === shrineStay.id);
       if (!sh) { shrineStay = null; note.hidden = true; return; }
     } else {
       // 10分以上 間があいたら、来なおしたことにする
@@ -1666,6 +1686,7 @@
     button.textContent = recording ? '■ 歩きおわる' : '🚶 歩きはじめる';
     button.classList.toggle('stop', recording);
     document.getElementById('liveText').hidden = !recording;
+    if (!recording) document.getElementById('shrineAdd').hidden = true;
     document.getElementById('prevDay').disabled = recording;
   }
 
