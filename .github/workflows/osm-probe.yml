@@ -1,0 +1,14 @@
+name: OSM probe (temporary)
+on:
+  push:
+    branches: [osm-probe]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          Q='[out:json][timeout:60];(nwr["name"~"諏訪"](36.25,138.42,36.42,138.58);nwr["religion"="shinto"](36.25,138.42,36.42,138.58);nwr["amenity"="place_of_worship"](36.25,138.42,36.42,138.58););out bb tags;'
+          for u in https://overpass-api.de/api/interpreter https://overpass.private.coffee/api/interpreter; do
+            echo "== $u"; curl -sS -m 90 --data-urlencode "data=$Q" "$u" | jq -c '.elements[] | {t:.type,id:.id,lat:(.lat // ((.bounds.minlat+.bounds.maxlat)/2)),lon:(.lon // ((.bounds.minlon+.bounds.maxlon)/2)),b:.bounds,tags:.tags}' && break
+          done
+          curl -sSL -m 30 -o /dev/null -w "gmaps: %{url_effective}\n" "https://maps.app.goo.gl/tjWGZ1YyRGjBgE3C6" || true
