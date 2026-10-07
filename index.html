@@ -480,6 +480,7 @@
   const SPEED_WINDOW_MS = 90000;  // 乗り物かどうかは直近1分半で進んだ距離で見る（GPSが数十mズレても乗り物にしない）
   const VEHICLE_BEFORE_MS = 90000; // 乗り物とわかったら、その前の1分半（走り出し）も数えない
   const VEHICLE_AFTER_MS = 60000;  // ゆっくりの動きが1分続くまでは乗り物のまま（信号待ち・渋滞・駐車場）
+  const ANCHOR_M = 10;           // 歩いた距離は、前に数えた点から10m以上はなれたら足す（GPSの細かいブレを数えない）
   const GAP_MS = 120000, GAP_M = 150; // 2分以上記録がとぎれて150m以上離れていたら、どう移動したかわからないので数えない
   const SAVE_KEY = 'aruku-data';
 
@@ -676,8 +677,8 @@
   }
 
   // ===== 乗り物の区間を取り除く =====
-  // 印 1 = その区間だけ速すぎた（2秒以上あいて秒速3m超、またはスマホが速いと言った）、
-  // 印 2 = 前後の動きから、電車・車に乗っていたと見なした区間。どちらも距離に入れない
+  // 印 1 = 速すぎた（スマホが速いと言った）、2 = 電車・車に乗っていたと見なした区間、
+  // 3 = GPSが一瞬とんだ点。どれも距離に入れない
   function markFast(pts) {
     for (let i = 1; i < pts.length; i++) {
       const a = pts[i - 1], b = pts[i];
@@ -693,10 +694,11 @@
     return w;
   }
 
-  // これから歩く散歩（v: 2）：区間ごとの速さに加えて、直近1分半の動きで乗り物に乗っていたかを見る
+  // これから歩く散歩（v: 2）：直近1分半の動きで乗り物に乗っていたかを見て、
+  // 歩いている間にGPSが一瞬とんだ点は飛ばして、その前の点からの距離で数える
   function cleanWalk(w) {
     const pts = w.points;
-    markFast(pts);
+    for (let i = 1; i < pts.length; i++) pts[i][3] = pts[i][3] === 1 && pts[i][2] - pts[i - 1][2] < 2000 ? 1 : 0;
     let inVehicle = false, slowSince = null, prevFast = false, k = 0;
     for (let i = 1; i < pts.length; i++) {
       const a = pts[i - 1], b = pts[i];
@@ -719,7 +721,21 @@
       }
       prevFast = fast;
     }
-    return sumWalked(w);
+    // 歩いた距離：最後に使った点（anchor）からの距離。速すぎる点はGPSのとびとして飛ばす
+    let meters = 0, anchor = 0, prev = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const b = pts[i];
+      if (b[3]) { anchor = prev = i; continue; }
+      const p = pts[prev], sec = (b[2] - p[2]) / 1000;
+      if (sec >= 2 && distanceM(p, b) / sec > MAX_WALK_SPEED) { b[3] = 3; continue; }
+      prev = i;
+      const d = distanceM(pts[anchor], b);
+      if (d < ANCHOR_M) continue; // 細かいブレで距離がふえないよう、10m以上はなれてから数える
+      meters += d;
+      anchor = i;
+    }
+    w.distance = meters;
+    return w;
   }
 
   // 保存してある散歩を読みこむ。乗り物の新しい判定より前に記録した散歩は、
@@ -744,6 +760,7 @@
     const segs = [];
     let seg = [];
     for (const p of w.points) {
+      if (p[3] === 3) continue; // GPSが一瞬とんだ点は線に入れない
       if (p[3] && seg.length) { segs.push(seg); seg = []; }
       seg.push([p[0], p[1]]);
     }
@@ -1392,13 +1409,13 @@
     map.panTo([latitude, longitude]);
     save();
     renderDay();
-    if (point[3]) showNote('🚃 乗り物で移動中のようです。この間は歩数に入れません');
+    if (point[3] === 1 || point[3] === 2) showNote('🚃 乗り物で移動中のようです。この間は歩数に入れません');
   }
 
   function onPositionError(err) {
     if (err.code === 1) {
-      showNote('位置情報が許可されていません。ブラウザの設定で、このページの位置情報を「許可」にしてください。');
       stopWalk();
+      showNote('位置情報が許可されていません。ブラウザの設定で、このページの位置情報を「許可」にしてください。');
     } else {
       showNote('位置がうまく取れません。しばらく待つか、場所を少し移動してみてください。');
     }
@@ -1620,13 +1637,14 @@
     showView('map');
     stopReplay();
     renderDay();
-    const points = list.flatMap((w) => w.points.map((p) => [p[0], p[1]]));
+    const kept = list.map((w) => w.points.filter((p) => p[3] !== 3)); // GPSが一瞬とんだ点は通らない
+    const points = kept.flatMap((pts) => pts.map((p) => [p[0], p[1]]));
     // 線を切る場所：散歩と散歩の間、乗り物で移動した点
     const breaks = new Set();
     let index = 0;
-    for (const w of list) {
-      w.points.forEach((p, i) => { if (i === 0 || p[3]) breaks.add(index + i); });
-      index += w.points.length;
+    for (const pts of kept) {
+      pts.forEach((p, i) => { if (i === 0 || p[3]) breaks.add(index + i); });
+      index += pts.length;
     }
     playRoute(points, breaks);
   }
