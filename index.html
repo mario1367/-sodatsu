@@ -953,6 +953,8 @@
   // 神社に SEED_STAY 以上いると種が1つ手に入る。そのあとは神社に POINT_STAY 以上いるたびに1ポイント（同じ神社は1日1回）
   // ポイントで種が育ち、花が咲くと神さまが座る。種は神さまの数（11）まで
   const SHRINE_RADIUS_M = 60;          // 神社の場所からこの距離までは「神社にいる」
+  const SHRINE_MAX_ACCURACY_M = 100;   // 木の多い境内はGPSの精度が落ちるので、神社を見るときはここまでの精度の位置も使う
+  const SHRINE_LEAVE_MS = 60000;       // 神社の外に出た判定がこれだけ続いたら「はなれた」（GPSのブレで時間がリセットされないように）
   const SEED_STAY_MS = 3 * 60000;      // 種がもらえる時間
   const POINT_STAY_MS = 60000;         // ポイントがもらえる時間
   const BLOOM_STEPS = [2, 4, 6];       // 芽・つぼみ・花になるポイント
@@ -977,7 +979,7 @@
   let shrineStay = null; // いま いる神社 { id, name, since, seen, seeded }
   let shrineTimer = null;
   let lastFix = null;
-  const SHRINE_KEY = 'aruku-shrines';
+  const SHRINE_KEY = 'aruku-shrines-2'; // 調べ方を広げたので、前に覚えた神社の一覧は使わず調べ直す
   try { const c = JSON.parse(localStorage.getItem(SHRINE_KEY) || 'null'); if (c) { shrineList = c.list; shrineArea = c.area; } } catch (e) {}
 
   // 近くの神社を地図（OpenStreetMap）から調べる。前に調べた場所から 800m 以上はなれたら調べ直す
@@ -987,9 +989,14 @@
     if (shrineArea && distanceM(shrineArea, at) < 800 && Date.now() - shrineArea[2] < 3 * 86400000) return;
     shrineLoading = Date.now();
     const around = '(around:1500,' + at[0].toFixed(5) + ',' + at[1].toFixed(5) + ')';
-    const q = '[out:json][timeout:25];(nwr["amenity"="place_of_worship"]["religion"="shinto"]' + around +
-      ';nwr["amenity"="place_of_worship"]["name"~"神社|神宮|大社|稲荷|八幡|天満宮"]' + around + ';);out bb tags;';
-    const urls = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter'];
+    // 地図に神社として載っているもの（鳥居マークの神社、建物だけの神社、小さなお社、名前に「神社」などがつく場所）
+    const q = '[out:json][timeout:25];(nwr["religion"="shinto"]["amenity"="place_of_worship"]' + around +
+      ';nwr["religion"="shinto"]["building"]' + around +
+      ';nwr["religion"="shinto"]["historic"="wayside_shrine"]' + around +
+      ';nwr["building"="shrine"]' + around +
+      ';nwr["name"~"神社|神宮|大社|稲荷|八幡|天満宮|天神|明神|権現|神明|宮$|社$"]["amenity"="place_of_worship"]["religion"!~"buddhist|christian"]' + around +
+      ';nwr["name"~"神社|神宮|大社|稲荷社|八幡宮|天満宮"]["building"]' + around + ';);out bb tags;';
+    const urls = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
     const tryUrl = (i) => {
       if (i >= urls.length) return;
       fetch(urls[i] + '?data=' + encodeURIComponent(q)).then((r) => { if (!r.ok) throw r; return r.json(); }).then((json) => {
@@ -1006,14 +1013,16 @@
     };
     tryUrl(0);
   }
-  function nearShrine(lat, lng) {
+  function nearShrine(lat, lng, acc) {
     let best = null, bestD = Infinity;
+    // GPSの精度がよくないときは、そのぶん少し（30mまで）広めに見る
+    const extra = Math.min(acc || 0, 60) / 2;
     for (const sh of shrineList) {
       // 境内が広い神社は、その四角の中（＋20m）なら「いる」
-      const pad = 20 / 111320;
+      const pad = (20 + extra) / 111320;
       const inBox = sh.box && lat >= sh.box[0] - pad && lat <= sh.box[2] + pad && lng >= sh.box[1] - pad * 1.25 && lng <= sh.box[3] + pad * 1.25;
       const d = distanceM([lat, lng], [sh.lat, sh.lng]);
-      if ((inBox || d <= SHRINE_RADIUS_M) && d < bestD) { best = sh; bestD = d; }
+      if ((inBox || d <= SHRINE_RADIUS_M + extra) && d < bestD) { best = sh; bestD = d; }
     }
     return best;
   }
@@ -1022,22 +1031,29 @@
   function mmss(ms) { const s = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(s / 60) + '分' + String(s % 60).padStart(2, '0') + '秒'; }
 
   // 記録中に位置が届くたび（と5秒ごと）に、神社にいるかを見る
-  function checkShrine(lat, lng) {
+  function checkShrine(lat, lng, acc) {
     if (!current) return;
     loadShrines([lat, lng]);
     const note = document.getElementById('shrineNote');
-    const sh = nearShrine(lat, lng);
     const now = Date.now();
-    if (!sh) { shrineStay = null; note.hidden = true; return; }
-    // 10分以上 間があいたら、来なおしたことにする
-    if (!shrineStay || shrineStay.id !== sh.id || now - shrineStay.seen > 600000) shrineStay = { id: sh.id, name: sh.name, since: now, seen: now };
-    shrineStay.seen = now;
+    let sh = nearShrine(lat, lng, acc);
+    const inside = !!sh;
+    if (!sh) {
+      // 少しのあいだ外に出た判定になっても（GPSのブレ）、同じ神社にいることにする
+      if (!shrineStay || now - shrineStay.seen > SHRINE_LEAVE_MS) { shrineStay = null; note.hidden = true; return; }
+      sh = shrineList.find((x) => x.id === shrineStay.id);
+      if (!sh) { shrineStay = null; note.hidden = true; return; }
+    } else {
+      // 10分以上 間があいたら、来なおしたことにする
+      if (!shrineStay || shrineStay.id !== sh.id || now - shrineStay.seen > 600000) shrineStay = { id: sh.id, name: sh.name, since: now, seen: now };
+      shrineStay.seen = now;
+    }
     const stay = now - shrineStay.since;
     const key = sh.id + '|' + dayKey(now);
     const growing = growingFlower();
     let changed = false;
     // ポイント（種を持ったことがあれば）
-    if (shrine.flowers.length && !shrine.visited[key] && stay >= POINT_STAY_MS) {
+    if (inside && shrine.flowers.length && !shrine.visited[key] && stay >= POINT_STAY_MS) {
       shrine.visited[key] = 1;
       shrine.points++;
       changed = true;
@@ -1063,7 +1079,7 @@
       }
     }
     // 種（育てている花がないとき。11こまで）
-    if (!growingFlower() && shrine.flowers.length < SHRINE_CHARS.length && !shrineStay.seeded && stay >= SEED_STAY_MS) {
+    if (inside && !growingFlower() && shrine.flowers.length < SHRINE_CHARS.length && !shrineStay.seeded && stay >= SEED_STAY_MS) {
       shrineStay.seeded = true;
       shrine.visited[key] = 1; // この神社の今日のポイントは、種の分でおしまい
       shrine.flowers.push({ char: shrine.flowers.length, seedAt: now, points: 0, bloomAt: null, shrine: sh.name });
@@ -1376,7 +1392,7 @@
     watchPosition();
     keepScreenOn();
     tickTimer = setInterval(renderDay, 15000); // 時間の表示を少しずつ進める
-    shrineTimer = setInterval(() => { if (lastFix) checkShrine(lastFix[0], lastFix[1]); }, 5000); // 神社で立ち止まっている間も時間を数える
+    shrineTimer = setInterval(() => { if (lastFix) checkShrine(lastFix[0], lastFix[1], lastFix[2]); }, 5000); // 神社で立ち止まっている間も時間を数える
     loadShrines(current.points.length ? current.points[current.points.length - 1] : null);
     setRecordingUI(true);
     save();
@@ -1390,12 +1406,14 @@
     if (!hereMarker) hereMarker = L.marker([latitude, longitude], { icon: hereIcon }).addTo(map);
     hereMarker.setLatLng([latitude, longitude]);
     if (accuracy > MAX_ACCURACY_M) {
+      // 道には使わないが、神社にいるかを見るのには使う
+      if (accuracy <= SHRINE_MAX_ACCURACY_M) { lastFix = [latitude, longitude, accuracy]; checkShrine(latitude, longitude, accuracy); }
       showNote('GPSの電波を探しています…（空が見える場所だと早くなります）');
       return;
     }
     showNote('');
-    lastFix = [latitude, longitude];
-    checkShrine(latitude, longitude);
+    lastFix = [latitude, longitude, accuracy];
+    checkShrine(latitude, longitude, accuracy);
     const last = current.points[current.points.length - 1];
     if (last) {
       const d = distanceM(last, point);
