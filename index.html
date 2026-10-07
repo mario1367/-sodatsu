@@ -477,8 +477,8 @@
   const REPLAY_ZOOM = 19;        // 再生するときの地図の近さ（大きいほど近い）
   const RESUME_LIMIT_MS = 3 * 60 * 60 * 1000; // 3時間以内に戻ってきたら、記録の続きから
   const MAX_WALK_SPEED = 3.0;    // 秒速3m（時速約11km）より速い移動は、電車や車として数えない
-  const SPEED_WINDOW_MS = 30000;  // 乗り物かどうかは直近30秒で進んだ距離で見る（GPSが一瞬ズレても乗り物にしない）
-  const VEHICLE_BEFORE_MS = 30000; // 乗り物とわかったら、その前の30秒（走り出し）も数えない
+  const SPEED_WINDOW_MS = 90000;  // 乗り物かどうかは直近1分半で進んだ距離で見る（GPSが数十mズレても乗り物にしない）
+  const VEHICLE_BEFORE_MS = 90000; // 乗り物とわかったら、その前の1分半（走り出し）も数えない
   const VEHICLE_AFTER_MS = 60000;  // ゆっくりの動きが1分続くまでは乗り物のまま（信号待ち・渋滞・駐車場）
   const GAP_MS = 120000, GAP_M = 150; // 2分以上記録がとぎれて150m以上離れていたら、どう移動したかわからないので数えない
   const SAVE_KEY = 'aruku-data';
@@ -693,7 +693,7 @@
     return w;
   }
 
-  // これから歩く散歩（v: 2）：区間ごとの速さに加えて、直近30秒の動きで乗り物に乗っていたかを見る
+  // これから歩く散歩（v: 2）：区間ごとの速さに加えて、直近1分半の動きで乗り物に乗っていたかを見る
   function cleanWalk(w) {
     const pts = w.points;
     markFast(pts);
@@ -703,7 +703,7 @@
       if (b[2] - a[2] >= GAP_MS && distanceM(a, b) >= GAP_M) { b[3] = b[3] || 2; prevFast = false; continue; }
       while (k < i - 1 && b[2] - pts[k][2] > SPEED_WINDOW_MS) k++;
       const span = (b[2] - pts[k][2]) / 1000;
-      const fast = span >= 15 && distanceM(pts[k], b) / span > MAX_WALK_SPEED;
+      const fast = span >= 60 && distanceM(pts[k], b) / span > MAX_WALK_SPEED;
       if (fast) {
         if (!inVehicle && prevFast) {
           // 2回続けて速い → 乗り物に乗った。走り出しの分もさかのぼって外す
