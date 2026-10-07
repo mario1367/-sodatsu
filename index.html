@@ -332,6 +332,7 @@
     background: #b3262d; color: #fff; border-radius: 14px; padding: 8px 12px; font-weight: 700; font-size: 0.92rem;
     box-shadow: 0 2px 10px rgba(0,0,0,0.2); font-variant-numeric: tabular-nums;
   }
+  .shrine-pin { font-size: 20px; line-height: 26px; width: 26px; height: 26px; text-align: center; background: #fff; border: 2px solid #b3262d; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
   .cat-icon img { width: 100%; height: 100%; display: block; transform-origin: 50% 100%; animation: step 0.42s ease-in-out infinite; }
   .cat-icon.west img { transform: scaleX(-1); }
   @media (prefers-reduced-motion: reduce) { .shrine-slot img, .cat-icon img { animation: none; } }
@@ -998,8 +999,10 @@
       ';nwr["name"~"神社|神宮|大社|稲荷社|八幡宮|天満宮"]["building"]' + around + ';);out bb tags;';
     const urls = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
     const tryUrl = (i) => {
-      if (i >= urls.length) return;
-      fetch(urls[i] + '?data=' + encodeURIComponent(q)).then((r) => { if (!r.ok) throw r; return r.json(); }).then((json) => {
+      if (i >= urls.length) { shrineLoading = Date.now() - 90000; return; } // どこもだめなら30秒後にもう一度
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 35000);
+      fetch(urls[i] + '?data=' + encodeURIComponent(q), { signal: ctrl.signal }).then((r) => { clearTimeout(timer); if (!r.ok) throw r; return r.json(); }).then((json) => {
         shrineList = json.elements.map((e) => {
           const b = e.bounds;
           return { id: e.type[0] + e.id, name: (e.tags && e.tags.name) || '名前のない神社',
@@ -1009,9 +1012,32 @@
         shrineArea = [at[0], at[1], Date.now()];
         shrineLoading = 0;
         try { localStorage.setItem(SHRINE_KEY, JSON.stringify({ list: shrineList, area: shrineArea })); } catch (e) {}
-      }).catch(() => tryUrl(i + 1));
+        drawShrines();
+      }).catch(() => { clearTimeout(timer); tryUrl(i + 1); });
     };
     tryUrl(0);
+  }
+  // 知っている神社を地図に ⛩ で出す（点線の丸が「神社にいる」になる範囲）
+  const shrineLayer = L.layerGroup().addTo(map);
+  function drawShrines() {
+    shrineLayer.clearLayers();
+    for (const sh of shrineList) {
+      if (sh.box) {
+        const pad = 20 / 111320;
+        L.rectangle([[sh.box[0] - pad, sh.box[1] - pad * 1.25], [sh.box[2] + pad, sh.box[3] + pad * 1.25]],
+          { color: '#b3262d', weight: 1.5, dashArray: '4 5', fillOpacity: 0.06, interactive: false }).addTo(shrineLayer);
+      }
+      L.circle([sh.lat, sh.lng], { radius: SHRINE_RADIUS_M, color: '#b3262d', weight: 1.5, dashArray: '4 5', fillOpacity: 0.06, interactive: false }).addTo(shrineLayer);
+      L.marker([sh.lat, sh.lng], { icon: L.divIcon({ className: '', html: '<div class="shrine-pin">⛩</div>', iconSize: [30, 30], iconAnchor: [15, 15] }), title: sh.name, keyboard: false })
+        .bindTooltip(sh.name).addTo(shrineLayer);
+    }
+  }
+  drawShrines();
+  // いちばん近い神社と、「神社にいる」範囲までの残りの距離
+  function closestShrine(lat, lng, acc) {
+    let best = null, bestD = Infinity;
+    for (const sh of shrineList) { const d = distanceM([lat, lng], [sh.lat, sh.lng]); if (d < bestD) { best = sh; bestD = d; } }
+    return best && { sh: best, left: Math.max(0, bestD - SHRINE_RADIUS_M - Math.min(acc || 0, 60) / 2) };
   }
   function nearShrine(lat, lng, acc) {
     let best = null, bestD = Infinity;
@@ -1040,7 +1066,14 @@
     const inside = !!sh;
     if (!sh) {
       // 少しのあいだ外に出た判定になっても（GPSのブレ）、同じ神社にいることにする
-      if (!shrineStay || now - shrineStay.seen > SHRINE_LEAVE_MS) { shrineStay = null; note.hidden = true; return; }
+      if (!shrineStay || now - shrineStay.seen > SHRINE_LEAVE_MS) {
+        shrineStay = null;
+        // 近くまで来ていたら、あとどれくらいかを出す
+        const c = closestShrine(lat, lng, acc);
+        if (c && c.left <= 150) { note.textContent = '⛩ ' + c.sh.name + 'まで あと約' + Math.max(5, Math.round(c.left / 5) * 5) + 'm'; note.hidden = false; }
+        else note.hidden = true;
+        return;
+      }
       sh = shrineList.find((x) => x.id === shrineStay.id);
       if (!sh) { shrineStay = null; note.hidden = true; return; }
     } else {
