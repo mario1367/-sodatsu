@@ -1173,7 +1173,7 @@
     garden.scrollLeft = garden.scrollWidth; // いま育てている花が見えるように
     const g = growingFlower();
     let text;
-    if (!shrine.flowers.length) text = '神社に<b>3分</b>いると、<b>ふしぎな種</b>が手に入るかも！花が咲くと、神さまがやってきます。';
+    if (!shrine.flowers.length) text = '<b>ふしぎな種</b>がもらえる神社があります。神社に<b>3分</b>いると、種が手に入るかも！花が咲くと、神さまがやってきます。';
     else if (g) text = '神社に<b>1分</b>いるたびに1ポイント（同じ神社は1日1回）。あと<b>' + (BLOOM_STEPS[2] - g.points) + 'ポイント</b>で花が咲きます。';
     else if (shrine.flowers.length < total) text = '花が咲きました！ 神社に<b>3分</b>いると、次の種が手に入ります。';
     else text = '11の花が全部咲きました。神さまが勢ぞろい！';
