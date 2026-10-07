@@ -477,7 +477,7 @@
   const REPLAY_ZOOM = 19;        // 再生するときの地図の近さ（大きいほど近い）
   const RESUME_LIMIT_MS = 3 * 60 * 60 * 1000; // 3時間以内に戻ってきたら、記録の続きから
   const MAX_WALK_SPEED = 3.0;    // 秒速3m（時速約11km）より速い移動は、電車や車として数えない
-  const SPEED_WINDOW_MS = 10000;  // 速さは直近10秒で進んだ距離で見る（1回ごとの数字だと、スマホが速さを教えてくれないとき車を見のがす）
+  const SPEED_WINDOW_MS = 30000;  // 乗り物かどうかは直近30秒で進んだ距離で見る（GPSが一瞬ズレても乗り物にしない）
   const VEHICLE_BEFORE_MS = 30000; // 乗り物とわかったら、その前の30秒（走り出し）も数えない
   const VEHICLE_AFTER_MS = 60000;  // ゆっくりの動きが1分続くまでは乗り物のまま（信号待ち・渋滞・駐車場）
   const GAP_MS = 120000, GAP_M = 150; // 2分以上記録がとぎれて150m以上離れていたら、どう移動したかわからないので数えない
@@ -624,19 +624,19 @@
   function load() {
     try {
       const data = JSON.parse(localStorage.getItem(SAVE_KEY) || '{}');
-      walks = (data.walks || []).map(cleanWalk);
+      walks = (data.walks || []).map(loadWalk);
       form = data.form || 'normal';
       if (data.shrine) shrine = Object.assign(shrine, data.shrine);
       // 記録中にページが閉じられた散歩：少し前までなら続きから記録する
       if (data.current) {
         const pts = data.current.points;
         const lastTime = pts.length ? pts[pts.length - 1][2] : data.current.start;
-        if (Date.now() - lastTime < RESUME_LIMIT_MS) { current = cleanWalk(data.current); return; }
+        if (Date.now() - lastTime < RESUME_LIMIT_MS) { current = loadWalk(data.current); return; }
       }
       // それより古いものは、そこまでの分を保存しておく
       if (data.current && data.current.points.length > 1) {
         data.current.end = data.current.points[data.current.points.length - 1][2];
-        walks.push(cleanWalk(data.current));
+        walks.push(loadWalk(data.current));
       }
     } catch (e) {}
   }
@@ -676,38 +676,58 @@
   }
 
   // ===== 乗り物の区間を取り除く =====
-  // 散歩の点を順に見直して、電車・車で動いた区間に印をつけ、距離から外す。
-  // 印 1 = 速すぎた（スマホが教えてくれた速さも含む）、2 = その前後で乗り物に乗っていたと見なした区間
-  function cleanWalk(w) {
-    const pts = w.points;
-    let inVehicle = false, slowSince = null, prevFast = false, k = 0, meters = 0;
-    for (const p of pts) if (p[3] !== 1) p[3] = 0;
+  // 印 1 = その区間だけ速すぎた（2秒以上あいて秒速3m超、またはスマホが速いと言った）、
+  // 印 2 = 前後の動きから、電車・車に乗っていたと見なした区間。どちらも距離に入れない
+  function markFast(pts) {
     for (let i = 1; i < pts.length; i++) {
       const a = pts[i - 1], b = pts[i];
-      const d = distanceM(a, b);
-      if (b[2] - a[2] >= GAP_MS && d >= GAP_M) { b[3] = b[3] || 2; prevFast = false; continue; }
-      // 直近10秒でどれだけ離れたか（行って戻るGPSのブレは速さにならない）
+      const sec = (b[2] - a[2]) / 1000;
+      if (sec >= 2) b[3] = distanceM(a, b) / sec > MAX_WALK_SPEED ? 1 : 0;
+      else b[3] = b[3] === 1 ? 1 : 0; // 1秒以内の点はスマホが教えてくれた速さの印だけ残す
+    }
+  }
+  function sumWalked(w) {
+    let meters = 0;
+    for (let i = 1; i < w.points.length; i++) if (!w.points[i][3]) meters += distanceM(w.points[i - 1], w.points[i]);
+    w.distance = meters;
+    return w;
+  }
+
+  // これから歩く散歩（v: 2）：区間ごとの速さに加えて、直近30秒の動きで乗り物に乗っていたかを見る
+  function cleanWalk(w) {
+    const pts = w.points;
+    markFast(pts);
+    let inVehicle = false, slowSince = null, prevFast = false, k = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], b = pts[i];
+      if (b[2] - a[2] >= GAP_MS && distanceM(a, b) >= GAP_M) { b[3] = b[3] || 2; prevFast = false; continue; }
       while (k < i - 1 && b[2] - pts[k][2] > SPEED_WINDOW_MS) k++;
       const span = (b[2] - pts[k][2]) / 1000;
-      const fast = b[3] === 1 || (span >= 2 && distanceM(pts[k], b) / span > MAX_WALK_SPEED);
+      const fast = span >= 15 && distanceM(pts[k], b) / span > MAX_WALK_SPEED;
       if (fast) {
-        b[3] = 1;
         if (!inVehicle && prevFast) {
           // 2回続けて速い → 乗り物に乗った。走り出しの分もさかのぼって外す
           inVehicle = true;
-          for (let m = i - 1; m > 0 && b[2] - pts[m][2] <= VEHICLE_BEFORE_MS; m--) pts[m][3] = pts[m][3] || 2;
+          for (let m = i; m > 0 && b[2] - pts[m][2] <= VEHICLE_BEFORE_MS; m--) pts[m][3] = pts[m][3] || 2;
         }
+        if (inVehicle) b[3] = b[3] || 2;
         slowSince = null;
       } else if (inVehicle) {
         if (slowSince === null) slowSince = b[2];
         if (b[2] - slowSince >= VEHICLE_AFTER_MS) inVehicle = false;
-        else b[3] = 2;
+        else b[3] = b[3] || 2;
       }
       prevFast = fast;
     }
-    for (let i = 1; i < pts.length; i++) if (!pts[i][3]) meters += distanceM(pts[i - 1], pts[i]);
-    w.distance = meters;
-    return w;
+    return sumWalked(w);
+  }
+
+  // 保存してある散歩を読みこむ。乗り物の新しい判定より前に記録した散歩は、
+  // そのときの歩数が変わらないよう、前と同じ数え方（区間ごとの速さだけ）で数える
+  function loadWalk(w) {
+    if (w.v >= 2) return cleanWalk(w);
+    markFast(w.points);
+    return sumWalked(w);
   }
 
   // 歩いていた時間（乗り物の区間は入れない）
@@ -1328,7 +1348,7 @@
       return;
     }
     viewDay = startOfDay(Date.now());
-    current = { id: Date.now(), start: Date.now(), end: null, points: [], distance: 0 };
+    current = { id: Date.now(), start: Date.now(), end: null, points: [], distance: 0, v: 2 };
     showNote('位置を探しています…');
     beginRecording();
   }
@@ -1367,7 +1387,7 @@
     // スマホが教えてくれた速さが速すぎれば、その時点で乗り物の印
     point.push((pos.coords.speed || 0) > MAX_WALK_SPEED ? 1 : 0);
     current.points.push(point);
-    cleanWalk(current); // 前後の動きもふまえて乗り物の区間を決め、距離を計算しなおす
+    loadWalk(current); // 前後の動きもふまえて乗り物の区間を決め、距離を計算しなおす
     liveLine.setLatLngs(segmentsOf(current));
     map.panTo([latitude, longitude]);
     save();
