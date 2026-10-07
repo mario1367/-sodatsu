@@ -477,6 +477,10 @@
   const REPLAY_ZOOM = 19;        // 再生するときの地図の近さ（大きいほど近い）
   const RESUME_LIMIT_MS = 3 * 60 * 60 * 1000; // 3時間以内に戻ってきたら、記録の続きから
   const MAX_WALK_SPEED = 3.0;    // 秒速3m（時速約11km）より速い移動は、電車や車として数えない
+  const SPEED_WINDOW_MS = 10000;  // 速さは直近10秒で進んだ距離で見る（1回ごとの数字だと、スマホが速さを教えてくれないとき車を見のがす）
+  const VEHICLE_BEFORE_MS = 30000; // 乗り物とわかったら、その前の30秒（走り出し）も数えない
+  const VEHICLE_AFTER_MS = 60000;  // ゆっくりの動きが1分続くまでは乗り物のまま（信号待ち・渋滞・駐車場）
+  const GAP_MS = 120000, GAP_M = 150; // 2分以上記録がとぎれて150m以上離れていたら、どう移動したかわからないので数えない
   const SAVE_KEY = 'aruku-data';
 
   // ===== 歩いた分だけ育つ世界 =====
@@ -672,16 +676,36 @@
   }
 
   // ===== 乗り物の区間を取り除く =====
-  // 保存してある散歩を見直して、速すぎる区間（電車・車）を距離から外す
+  // 散歩の点を順に見直して、電車・車で動いた区間に印をつけ、距離から外す。
+  // 印 1 = 速すぎた（スマホが教えてくれた速さも含む）、2 = その前後で乗り物に乗っていたと見なした区間
   function cleanWalk(w) {
-    let meters = 0;
-    for (let i = 1; i < w.points.length; i++) {
-      const a = w.points[i - 1], b = w.points[i];
+    const pts = w.points;
+    let inVehicle = false, slowSince = null, prevFast = false, k = 0, meters = 0;
+    for (const p of pts) if (p[3] !== 1) p[3] = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], b = pts[i];
       const d = distanceM(a, b);
-      const sec = (b[2] - a[2]) / 1000;
-      if (!b[3] && sec >= 2 && d / sec > MAX_WALK_SPEED) b[3] = 1;
-      if (!b[3]) meters += d;
+      if (b[2] - a[2] >= GAP_MS && d >= GAP_M) { b[3] = b[3] || 2; prevFast = false; continue; }
+      // 直近10秒でどれだけ離れたか（行って戻るGPSのブレは速さにならない）
+      while (k < i - 1 && b[2] - pts[k][2] > SPEED_WINDOW_MS) k++;
+      const span = (b[2] - pts[k][2]) / 1000;
+      const fast = b[3] === 1 || (span >= 2 && distanceM(pts[k], b) / span > MAX_WALK_SPEED);
+      if (fast) {
+        b[3] = 1;
+        if (!inVehicle && prevFast) {
+          // 2回続けて速い → 乗り物に乗った。走り出しの分もさかのぼって外す
+          inVehicle = true;
+          for (let m = i - 1; m > 0 && b[2] - pts[m][2] <= VEHICLE_BEFORE_MS; m--) pts[m][3] = pts[m][3] || 2;
+        }
+        slowSince = null;
+      } else if (inVehicle) {
+        if (slowSince === null) slowSince = b[2];
+        if (b[2] - slowSince >= VEHICLE_AFTER_MS) inVehicle = false;
+        else b[3] = 2;
+      }
+      prevFast = fast;
     }
+    for (let i = 1; i < pts.length; i++) if (!pts[i][3]) meters += distanceM(pts[i - 1], pts[i]);
     w.distance = meters;
     return w;
   }
@@ -1339,18 +1363,11 @@
     if (last) {
       const d = distanceM(last, point);
       if (d < MIN_MOVE_M) return; // ほとんど動いていない
-      // 速さ（秒速何m）。スマホが教えてくれる速さがあればそれを使う
-      const sec = (point[2] - last[2]) / 1000;
-      // 2秒以上あいていれば、距離と時間からも速さを計算して、速いほうを使う
-      const reported = pos.coords.speed || 0;
-      const speed = Math.max(reported, sec >= 2 ? d / sec : 0);
-      if (speed > MAX_WALK_SPEED) {
-        point.push(1); // 乗り物で移動中：線をつながず、歩数にも入れない
-      } else {
-        current.distance += d;
-      }
     }
+    // スマホが教えてくれた速さが速すぎれば、その時点で乗り物の印
+    point.push((pos.coords.speed || 0) > MAX_WALK_SPEED ? 1 : 0);
     current.points.push(point);
+    cleanWalk(current); // 前後の動きもふまえて乗り物の区間を決め、距離を計算しなおす
     liveLine.setLatLngs(segmentsOf(current));
     map.panTo([latitude, longitude]);
     save();
