@@ -158,7 +158,14 @@
   .plant.levelup { animation: levelup 0.9s cubic-bezier(.3,1.6,.5,1), sway 4s ease-in-out infinite alternate; }
   @keyframes levelup { 0% { scale: 0.3; opacity: 0.2; } 60% { scale: 1.18; opacity: 1; } 100% { scale: 1; } }
   /* Lv11〜：大きな絵（見えていない所はうっすら） */
-  .world.picture-mode { background: #fff; }
+  .world.picture-mode { background: linear-gradient(#fdfdf8, #f1f4e6); } /* まっさらな野 */
+  .god-layer { display: none; position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+  .world.picture-mode .god-layer { display: block; }
+  .pgod { position: absolute; translate: -50% -100%; }
+  .pgod::after { content: ''; position: absolute; left: 50%; bottom: -3px; translate: -50% 0; width: 34px; height: 8px; border-radius: 50%; background: rgba(60, 50, 20, 0.18); z-index: -1; }
+  .pgod img { display: block; height: 46px; max-width: 64px; object-fit: contain; object-position: bottom;
+    filter: drop-shadow(0 0 3px #fff) drop-shadow(0 1px 1px rgba(0,0,0,0.3)); animation: kami-sway 3.4s ease-in-out infinite alternate; transform-origin: 50% 100%; }
+  .pgod.tree { font-size: 46px; line-height: 1; }
   .world.picture-mode .ground, .world.picture-mode .plant, .world.picture-mode .scene { display: none; }
   .picture { position: absolute; left: 0; right: 0; top: 120px; bottom: 0; width: 100%; height: calc(100% - 120px); }
   .world.picture-mode .world-title { z-index: 2; }
@@ -311,7 +318,7 @@
   .kami img { position: absolute; left: 50%; bottom: 90px; translate: -50% 0; height: 116px; max-width: 170px; object-fit: contain; object-position: bottom;
     filter: drop-shadow(0 1px 1px rgba(0,0,0,0.3)); animation: kami-sway 3.4s ease-in-out infinite alternate; transform-origin: 50% 100%; }
   .world.picture-mode .kami-layer { display: none; } /* Lv11〜の絵の場面には出さない */
-  @media (prefers-reduced-motion: reduce) { .kami img { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .kami img, .pgod img { animation: none; } }
   /* ===== 神社の花畑 ===== */
   .shrine { border: 2px solid var(--track); border-radius: 18px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
   .shrine-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
@@ -410,6 +417,7 @@
       <div class="plant" id="plant" aria-hidden="true">🫘</div>
       <div class="ground"></div>
       <canvas class="picture" id="picture" aria-hidden="true" hidden></canvas>
+      <div class="god-layer" id="godLayer" aria-hidden="true"></div>
       <div class="dq-flash" id="dqFlash" hidden></div>
       <div class="form-portrait" id="formPortrait" aria-hidden="true" hidden></div>
       <div class="dq-box" id="dqBox" role="status" aria-live="polite" hidden><p id="dqText"></p><span class="dq-next" aria-hidden="true">▼</span></div>
@@ -498,17 +506,17 @@
     { level: 8,  emoji: '🌳', size: 1.15, name: '動物が住みはじめた', requiredSteps: 300000 },
     { level: 9,  emoji: '🌳', size: 1.2,  name: '小さな森になった',   requiredSteps: 400000 },
     { level: 10, emoji: '🌳', size: 1.55, name: '花いっぱいの森',     requiredSteps: 550000 },
-    // Lv11〜20：大きな絵の世界が、少しずつ見えてくる
-    { level: 11, picture: true, name: 'キノコの丘が見えた',     requiredSteps: 650000 },
-    { level: 12, picture: true, name: 'ネコとヘルメットの子',   requiredSteps: 750000 },
-    { level: 13, picture: true, name: 'カタツムリがやって来た', requiredSteps: 850000 },
-    { level: 14, picture: true, name: 'くだものの島',           requiredSteps: 950000 },
-    { level: 15, picture: true, name: '空飛ぶネコと花',         requiredSteps: 1050000 },
-    { level: 16, picture: true, name: 'ちょうちょが舞う',       requiredSteps: 1150000 },
-    { level: 17, picture: true, name: '船とワニ',               requiredSteps: 1250000 },
-    { level: 18, picture: true, name: 'イルカが顔を出した',     requiredSteps: 1350000 },
-    { level: 19, picture: true, name: 'イルカのジャンプ',       requiredSteps: 1450000 },
-    { level: 20, picture: true, name: 'ふしぎな塔の世界',       requiredSteps: 1600000 },
+    // Lv11〜20：神々の野。集めた神さまのまわりから、絵に色がついていく
+    { level: 11, picture: true, name: '神々の野',             requiredSteps: 650000 },
+    { level: 12, picture: true, name: '色が生まれた',         requiredSteps: 750000 },
+    { level: 13, picture: true, name: '色がひろがった',       requiredSteps: 850000 },
+    { level: 14, picture: true, name: '色と色がつながった',   requiredSteps: 950000 },
+    { level: 15, picture: true, name: '景色が見えてきた',     requiredSteps: 1050000 },
+    { level: 16, picture: true, name: 'にぎやかになってきた', requiredSteps: 1150000 },
+    { level: 17, picture: true, name: '野が色づいてきた',     requiredSteps: 1250000 },
+    { level: 18, picture: true, name: 'あと少しで仕上がる',   requiredSteps: 1350000 },
+    { level: 19, picture: true, name: '仕上げのひとふで',     requiredSteps: 1450000 },
+    { level: 20, picture: true, name: '神々の世界が完成した', requiredSteps: 1600000 },
   ];
   // 成長したときの記録とお知らせ：[絵文字, 成長の記録に書くこと, 歩いている途中に出すお知らせ, 次の成長までの表示]
   const GROWTH = {
@@ -521,16 +529,16 @@
     8:  ['🐇', '動物が住みはじめた',     '動物が住みはじめました！', '動物が住みはじめるよ'],
     9:  ['🌲', '小さな森になった',       '小さな森になりました！', '小さな森になるよ'],
     10: ['🌸', '花いっぱいの森になった', '森が花でいっぱいになりました！', '花いっぱいの森になるよ'],
-    11: ['✨', '新しい世界が見えた（キノコの丘）', '森のむこうに 新しい世界が見えました！', '新しい世界が見えるよ'],
-    12: ['🐱', 'ネコとヘルメットの子が見えた', 'ネコとヘルメットの子が見えました！', 'ネコとヘルメットの子が見えるよ'],
-    13: ['🐌', 'カタツムリがやって来た', 'カタツムリがやって来ました！', 'カタツムリがやって来るよ'],
-    14: ['🍎', 'くだものの島が見えた',   'くだものの島が見えました！', 'くだものの島が見えるよ'],
-    15: ['🌺', '空飛ぶネコと花が見えた', '空飛ぶネコと花が見えました！', '空飛ぶネコと花が見えるよ'],
-    16: ['🦋', 'ちょうちょが舞った',     'ちょうちょが舞いはじめました！', 'ちょうちょが舞うよ'],
-    17: ['⛵', '船とワニが見えた',       '船とワニが見えました！', '船とワニが見えるよ'],
-    18: ['🐬', 'イルカが顔を出した',     'イルカが顔を出しました！', 'イルカが顔を出すよ'],
-    19: ['🐬', 'イルカがジャンプした',   'イルカがジャンプしました！', 'イルカがジャンプするよ'],
-    20: ['🗼', 'ふしぎな塔の世界が全部見えた', 'ふしぎな塔の世界が 全部見えました！', 'ふしぎな塔の世界が全部見えるよ'],
+    11: ['⛩', '神々が まっさらな野に 降りたった', '神々が まっさらな野に 降りたちました！', '神々の野が ひらけるよ'],
+    12: ['🎨', '神々のまわりに 色が生まれた', '神々のまわりに 色が生まれました！', '色が生まれるよ'],
+    13: ['🎨', '色がひろがった',         '色が ひろがりました！', '色が ひろがるよ'],
+    14: ['🌈', '色と色がつながった',     '色と色が つながりました！', '色と色が つながるよ'],
+    15: ['🏞', '景色が見えてきた',       '景色が 見えてきました！', '景色が 見えてくるよ'],
+    16: ['🎨', 'にぎやかになってきた',   '野が にぎやかになってきました！', '野が にぎやかになるよ'],
+    17: ['🌈', '野が色づいてきた',       '野が 色づいてきました！', '野が 色づくよ'],
+    18: ['🖌', 'あと少しで仕上がる',     'あと少しで 絵が仕上がります！', 'あと少しで仕上がるよ'],
+    19: ['🖌', '仕上げのひとふで',       '仕上げの ひとふで！', '仕上げの ひとふでだよ'],
+    20: ['⛩', '神々の世界が完成した',   '神々の世界が 完成しました！', '神々の世界が完成するよ'],
   };
   const NEAR_STEPS = 2000;       // 次の成長まで これより少なければ「あと少し！」と出す
   const STEPS_PER_MIN = 100;     // 1分で歩くおよその歩数（あと何分かの めやす）
@@ -551,19 +559,10 @@
     { level: 10, emoji: '🐝', x: 60, y: 44, size: 24, move: 'fly' },
     { level: 10, emoji: '🌻', x: 30, y: 17, size: 30, move: 'sway' },
   ];
-  // Lv11〜19 で見えてくる場所（大きな絵の中の位置 x, y, 幅, 高さ。絵は 678×820）。Lv20 で全部見える
+  // Lv11〜20：神々の野（絵は 678×820）。集めた神さまを まっさらな野に置くと、そのまわりから絵に色がついていく
   const PICTURE_SIZE = [678, 820];
-  const PICTURE_REVEALS = {
-    11: [[560, 330, 118, 280]],                   // キノコと花
-    12: [[410, 380, 160, 110]],                   // ネコとヘルメットの子
-    13: [[240, 650, 120, 100]],                   // カタツムリに乗った子
-    14: [[215, 470, 260, 190]],                   // くだものの島
-    15: [[560, 0, 118, 90], [270, 0, 120, 130]],  // 空飛ぶネコ、電球の花
-    16: [[180, 40, 90, 100], [270, 210, 100, 90]], // ちょうちょ
-    17: [[340, 590, 338, 230]],                   // 船とワニ
-    18: [[0, 570, 250, 250]],                     // イルカと帽子の人
-    19: [[0, 120, 330, 450]],                     // 恐竜とジャンプするイルカ
-  };
+  // 神さまを置く場所（絵の中の x, y。神さまの足もと）。来た順に置く。何人でも野に散らばるように並べてある
+  const GOD_SPOTS = [[330, 560], [520, 250], [130, 300], [150, 720], [560, 700], [330, 140], [620, 470], [40, 520], [360, 790], [100, 130], [610, 130]];
 
   // 送ってもらった絵のキャラクター（img: chars/ の画像、size: 高さpx）。Lv3 から少しずつ増える
   DECORATIONS.push(
@@ -1282,11 +1281,33 @@
     page.scrollTop = 0;
   }
 
-  // 大きな絵を描く。見えた場所ははっきり、まだの所はうっすら
+  // 神々の野を描く。神さまのまわりは絵に色がつき、まだの所は まっさらな野
   const pictureImage = new Image();
   pictureImage.src = 'chars/world20.jpg';
   pictureImage.onload = () => { if (!document.getElementById('world').hidden) renderWorld(); };
-  function drawPicture(level) {
+  let pictureSteps = null; // 歩きおわった後に色が広がる演出の間は、ここに表示中の歩数が入る
+  // 野にいる神さま（花が咲いた順）。まだひとりもいないときは、花の森の木から色がつく
+  function pictureGods() {
+    const gods = shrine.flowers.filter((f) => f.bloomAt).slice(0, GOD_SPOTS.length).map((f, i) => ({ c: SHRINE_CHARS[f.char], at: GOD_SPOTS[i] }));
+    return gods.length ? gods : [{ tree: true, at: GOD_SPOTS[0] }];
+  }
+  // 色のついた広さ（絵全体に対する割合）。Lv11 で 3%、Lv20 で 100%
+  function pictureColored(steps) {
+    const from = STAGES.find((s) => s.level === 11).requiredSteps, to = STAGES.find((s) => s.level === 20).requiredSteps;
+    return Math.max(0.03, Math.min(1, 0.03 + 0.97 * (steps - from) / (to - from)));
+  }
+  // 色のついた広さが colored になるように、神さまのまわりの丸の大きさを決める（神さまが何人でも同じ広さになる）
+  function colorRadius(spots, colored) {
+    const [iw, ih] = PICTURE_SIZE, N = 40;
+    const near = [];
+    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+      const x = (i + 0.5) * iw / N, y = (j + 0.5) * ih / N;
+      near.push(Math.min(...spots.map(([sx, sy]) => Math.hypot(x - sx, y - sy))));
+    }
+    near.sort((a, b) => a - b);
+    return near[Math.min(near.length - 1, Math.floor(colored * near.length))];
+  }
+  function drawPicture(steps) {
     const canvas = document.getElementById('picture');
     const box = canvas.getBoundingClientRect();
     if (!pictureImage.complete || !box.width) return;
@@ -1294,45 +1315,46 @@
     canvas.width = Math.round(box.width * dpr); canvas.height = Math.round(box.height * dpr);
     const ctx = canvas.getContext('2d');
     const [iw, ih] = PICTURE_SIZE;
-    // 見えている所だけを大きく映す。レベルが上がるほど引いていき、Lv20 で全体が見える
-    let x0 = 0, y0 = 0, x1 = iw, y1 = ih;
-    if (level < 20) {
-      x0 = iw; y0 = ih; x1 = 0; y1 = 0;
-      for (let lv = 11; lv <= level; lv++) {
-        for (const [x, y, w, h] of PICTURE_REVEALS[lv] || []) {
-          x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x + w); y1 = Math.max(y1, y + h);
-        }
-      }
-      const pad = 0.12 * Math.max(x1 - x0, y1 - y0);
-      x0 -= pad; y0 -= pad; x1 += pad; y1 += pad;
-      // 画面の縦横の比に合わせて広げる（絵の外にははみ出さない）
-      const aspect = canvas.width / canvas.height;
-      let w = x1 - x0, h = y1 - y0;
-      if (w / h < aspect) { const nw = Math.min(iw, h * aspect); x0 -= (nw - w) / 2; w = nw; }
-      else { const nh = Math.min(ih, w / aspect); y0 -= (nh - h) / 2; h = nh; }
-      x0 = Math.max(0, Math.min(x0, iw - w)); y0 = Math.max(0, Math.min(y0, ih - h));
-      x1 = x0 + w; y1 = y0 + h;
-    }
-    const scale = Math.min(canvas.width / (x1 - x0), canvas.height / (y1 - y0));
-    const dx = (canvas.width - (x1 - x0) * scale) / 2 - x0 * scale;
-    const dy = (canvas.height - (y1 - y0) * scale) / 2 - y0 * scale;
-    ctx.globalAlpha = level >= 20 ? 1 : 0.13;
-    ctx.drawImage(pictureImage, dx, dy, iw * scale, ih * scale);
-    ctx.globalAlpha = 1;
-    if (level >= 20) return;
-    // 見えた場所だけ、はっきり描く（ふちはぼかす）
+    const scale = Math.min(canvas.width / iw, canvas.height / ih);
+    const dx = (canvas.width - iw * scale) / 2, dy = (canvas.height - ih * scale) / 2;
+    const gods = pictureGods();
+    // 神さまを野に置く（足もとが その場所に来るように）
+    const layer = document.getElementById('godLayer');
+    const html = gods.map((g) => {
+      const x = (dx + g.at[0] * scale) / dpr, y = canvas.offsetTop + (dy + g.at[1] * scale) / dpr;
+      return '<div class="pgod' + (g.tree ? ' tree' : '') + '" style="left:' + x.toFixed(1) + 'px;top:' + y.toFixed(1) + 'px">' +
+        (g.tree ? '🌳' : '<img src="chars/shrine/' + g.c.img + '.png" alt="">') + '</div>';
+    }).join('');
+    if (layer.dataset.html !== html) { layer.innerHTML = html; layer.dataset.html = html; }
+    const colored = pictureColored(steps);
+    if (colored >= 1) { ctx.drawImage(pictureImage, dx, dy, iw * scale, ih * scale); return; }
+    // 神さまのまわりだけ、絵を見せる（ふちはぼかす）
+    const r = colorRadius(gods.map((g) => g.at), colored) * scale;
     const mask = document.createElement('canvas');
     mask.width = canvas.width; mask.height = canvas.height;
     const m = mask.getContext('2d');
-    m.filter = 'blur(' + Math.round(10 * dpr) + 'px)';
-    m.fillStyle = '#000';
-    for (let lv = 11; lv <= level; lv++) {
-      for (const [x, y, w, h] of PICTURE_REVEALS[lv] || []) m.fillRect(dx + x * scale, dy + y * scale, w * scale, h * scale);
+    for (const g of gods) {
+      const x = dx + g.at[0] * scale, y = dy + g.at[1] * scale;
+      const grad = m.createRadialGradient(x, y, r * 0.75, x, y, r * 1.2);
+      grad.addColorStop(0, '#000'); grad.addColorStop(1, 'rgba(0,0,0,0)');
+      m.fillStyle = grad;
+      m.fillRect(x - r * 1.2, y - r * 1.2, r * 2.4, r * 2.4);
     }
-    m.filter = 'none';
     m.globalCompositeOperation = 'source-in';
     m.drawImage(pictureImage, dx, dy, iw * scale, ih * scale);
     ctx.drawImage(mask, 0, 0);
+  }
+  // 歩きおわったとき、歩いた分だけ 色が広がっていく様子を見せる
+  function animatePicture(from, to) {
+    const start = performance.now(), ms = 2400;
+    pictureSteps = from;
+    const step = (now) => {
+      const t = Math.min(1, (now - start) / ms);
+      pictureSteps = from + (to - from) * (1 - Math.pow(1 - t, 3));
+      drawPicture(pictureSteps);
+      if (t < 1) requestAnimationFrame(step); else pictureSteps = null;
+    };
+    requestAnimationFrame(step);
   }
 
   // showStage を渡すと、その段階の見た目で描く（新しい世界に入る前の演出用）
@@ -1346,10 +1368,11 @@
     document.getElementById('picture').hidden = !pictureMode;
     if (pictureMode) {
       document.getElementById('stageName').textContent = 'Lv' + stage.level + '　' + stage.name;
+      const colored = Math.floor(pictureColored(steps) * 100);
       document.getElementById('stageInfo').textContent = next
-        ? 'これまで ' + steps.toLocaleString() + ' 歩・次まで あと ' + (next.requiredSteps - steps).toLocaleString() + ' 歩'
-        : 'これまで ' + steps.toLocaleString() + ' 歩・最高の段階です';
-      requestAnimationFrame(() => drawPicture(stage.level));
+        ? '絵の完成 ' + colored + '%・次まで あと ' + (next.requiredSteps - steps).toLocaleString() + ' 歩'
+        : 'これまで ' + steps.toLocaleString() + ' 歩・神々の世界が完成！';
+      requestAnimationFrame(() => drawPicture(pictureSteps === null ? steps : pictureSteps));
       return;
     }
     // 同じ段階の中でも、歩くほど少しずつ大きくなる
@@ -1499,6 +1522,7 @@
       showView('world');
       const after = getStage(totalSteps());
       floatText('+' + walkedSteps.toLocaleString() + ' 歩', 'steps-pop', 62, 55);
+      if (before.level >= 11) animatePicture(totalSteps() - walkedSteps, totalSteps()); // 神々の野：色が広がる
       if (after.level > before.level) {
         if (before.level < 11 && after.level >= 11) {
           enterNewWorld(after, checkForm);
@@ -1647,8 +1671,9 @@
     playFanfare(true);
     showMessages([
       'おや？ 花の森の むこうに なにかが 見える……',
-      'なんと！ あたらしい せかいへの みちが ひらかれた！',
-      'これからは 歩くたびに ふしぎな せかいが すこしずつ 見えてくるぞ。',
+      'なんと！ まっさらな 野が ひらけた！',
+      shrine.flowers.some((f) => f.bloomAt) ? '神々が 野に 降りたっていく……' : '花の森の 木が 野に たった……',
+      'これからは 歩くたびに 神々の まわりから 色が ついていくぞ。 神々の世界を 完成させよう！',
     ], () => {
       const flash = document.getElementById('dqFlash');
       flash.hidden = false;
