@@ -197,8 +197,13 @@
   @keyframes dq-blink { 50% { opacity: 0; } }
   .form-portrait { position: absolute; left: 0; right: 0; bottom: 150px; z-index: 18; display: flex; justify-content: center; pointer-events: none; }
   .form-portrait img { height: 180px; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.35)); }
+  .form-portrait img:not(.scene) { position: relative; }
+  .form-portrait .scene { position: absolute; top: auto; bottom: 20px; left: 50%; transform: translateX(-50%); height: 290px; width: auto; border-radius: 14px; box-shadow: 0 6px 20px rgba(0,0,0,0.4); }
+  .form-portrait .scene + img { height: 140px; margin: 0 0 -10px 150px; }
   .form-portrait.pop img { animation: portrait-pop 0.9s cubic-bezier(.3,1.6,.5,1); }
   @keyframes portrait-pop { 0% { transform: scale(0.2); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+  .form-portrait.pop .scene { animation: scene-in 0.9s ease-out; }
+  @keyframes scene-in { 0% { opacity: 0; transform: translateX(-50%) scale(0.9); } 100% { opacity: 1; transform: translateX(-50%); } }
   .dq-flash { position: absolute; inset: 0; z-index: 19; background: #fff; opacity: 0; pointer-events: none; }
   .dq-flash.go { animation: dq-flash 1.3s ease-in-out forwards; }
   @keyframes dq-flash { 0% { opacity: 0; } 35% { opacity: 1; } 55% { opacity: 1; } 100% { opacity: 0; } }
@@ -637,7 +642,7 @@
   let walks = [];
   let current = null;            // 記録中の散歩（記録していないときはnull）
   let shrine = { flowers: [], points: 0, visited: {}, log: [] }; // 神社の花畑（flowers: { char, seedAt, points, bloomAt }）
-  let form = 'normal';           // いまのすがた：'normal'（ふつう）/ 'god'（神）/ 'zou'（象人間）
+  let form = 'normal';           // いまのすがた：'normal'（ふつう）/ 'god'（神）/ 'zou'（象人間）/ 'hebi'（顔ヘビ）
 
   // ?demo をつけて開くと、サンプルの記録で動く（スマホの本当の記録は読まないし、書きかえない）
   const DEMO = /[?&]demo/.test(location.search);
@@ -808,7 +813,16 @@
     god:    { src: 'chars/god.png',  w: 46, h: 64, alt: '雲に乗った神さま' },
     zou:    { src: 'chars/zou.png',  w: 56, h: 52, alt: '象人間' },
     ganesha:{ src: 'chars/ganesha.png', w: 58, h: 62, alt: 'ガネーシャ' },
+    hebi:   { src: 'chars/kaohebi.png', w: 54, h: 55, alt: '顔ヘビ' },
   };
+  // ふつうのすがたのときは、ときどき走ったりピースしたりする
+  const WALKER_POSES = ['chars/walker_run.png', 'chars/walker_peace.png'];
+  setInterval(() => {
+    const img = document.querySelector('#walkerEl img');
+    if (!img || form !== 'normal') return;
+    img.src = WALKER_POSES[Math.floor(Math.random() * WALKER_POSES.length)];
+    setTimeout(() => { if (form === 'normal') img.src = WALKER_LOOKS.normal.src; }, 2500);
+  }, 12000);
   function walkerIcon() {
     const look = WALKER_LOOKS[form] || WALKER_LOOKS.normal;
     return L.divIcon({ className: '', iconSize: [look.w, look.h], iconAnchor: [look.w / 2, look.h - 2],
@@ -1551,6 +1565,7 @@
   // ===== すがたが変わる（神 / 象人間） =====
   const GOD_DAYS = 7;          // 7日つづけて目標を達成すると、神になる
   const LAZY_DAYS = 3;         // 3日つづけてほとんど歩かないと、象人間になる
+  const HEBI_DAYS = 7;         // 7日つづけてほとんど歩かないと、顔ヘビになる
   const LAZY_STEPS = 1000;     // 1日これより少ないと「ほとんど歩いていない」
   const GANESHA_STEPS = 13000; // 1日にこれより多く歩くと、その日はガネーシャになる
   function stepsOfDay(day) {
@@ -1571,15 +1586,17 @@
     // 象人間：使いはじめて3日以上たっていて、今日をふくむ3日間ずっとほとんど歩いていない
     const firstDay = startOfDay(Math.min(...walks.map((w) => w.start)));
     if (today - firstDay >= LAZY_DAYS * 86400000 - 3600000 * 2) {
-      let lazy = true;
-      for (let n = 0; n < LAZY_DAYS; n++) if (stepsOfDay(dayBefore(today, n)) >= LAZY_STEPS) lazy = false;
-      if (lazy) return 'zou';
+      let lazyDays = 0;
+      while (lazyDays < HEBI_DAYS && stepsOfDay(dayBefore(today, lazyDays)) < LAZY_STEPS) lazyDays++;
+      if (lazyDays >= HEBI_DAYS && today - firstDay >= HEBI_DAYS * 86400000 - 3600000 * 2) return 'hebi';
+      if (lazyDays >= LAZY_DAYS) return 'zou';
     }
     return 'normal';
   }
   const FORM_MESSAGES = {
     god: ['なんと！', 'あなたは すごいので 神に なりました！', '（' + GOD_DAYS + '日 つづけて ' + DAILY_GOAL_STEPS.toLocaleString() + '歩 あるいた）'],
     zou: ['な、なんと！', 'なまけていたので 象人間に なってしまった！', '歩けば もとの すがたに もどれるぞ。'],
+    hebi: ['な、な、なんと！！', 'あまりにも なまけていたので', '怪鳥に 顔ヘビに されてしまった……', '歩けば もとの すがたに もどれるぞ。'],
     fromZou: ['のろいが とけた！', 'もとの すがたに もどった！'],
     ganesha: ['な、なんと！', 'きょうは ' + GANESHA_STEPS.toLocaleString() + '歩を こえたので', 'ガネーシャに なった！'],
     fromGanesha: ['ガネーシャの ちからが きえた……', 'また たくさん 歩けば ガネーシャに なれるぞ。'],
@@ -1593,8 +1610,8 @@
     save();
     showView('world');
     const lines = FORM_MESSAGES[next]
-      || (before === 'zou' ? FORM_MESSAGES.fromZou : before === 'ganesha' ? FORM_MESSAGES.fromGanesha : FORM_MESSAGES.fromGod);
-    if (next === 'zou') playSadTune(); else playFanfare(next === 'god' || next === 'ganesha');
+      || (before === 'zou' || before === 'hebi' ? FORM_MESSAGES.fromZou : before === 'ganesha' ? FORM_MESSAGES.fromGanesha : FORM_MESSAGES.fromGod);
+    if (next === 'zou' || next === 'hebi') playSadTune(); else playFanfare(next === 'god' || next === 'ganesha');
     showFormPortrait(next);
     showMessages(lines, () => hideFormPortrait());
   }
@@ -1602,7 +1619,7 @@
   function showFormPortrait(name) {
     const look = WALKER_LOOKS[name] || WALKER_LOOKS.normal;
     const el = document.getElementById('formPortrait');
-    el.innerHTML = '<img src="' + look.src + '" alt="' + look.alt + '">';
+    el.innerHTML = (name === 'hebi' ? '<img class="scene" src="chars/kaicho.jpg" alt="怪鳥">' : '') + '<img src="' + look.src + '" alt="' + look.alt + '">';
     el.hidden = false;
     el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
   }
