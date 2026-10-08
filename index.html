@@ -169,15 +169,12 @@
     filter: drop-shadow(0 0 3px #fff) drop-shadow(0 1px 1px rgba(0,0,0,0.3)); animation: kami-sway 3.4s ease-in-out infinite alternate; transform-origin: 50% 100%; }
   .pgod.tree { font-size: 46px; line-height: 1; }
   /* 絵を描いているところの動画 */
-  .paint-replay { display: none; position: absolute; left: 10px; bottom: 10px; z-index: 3; border: 0; border-radius: 999px; padding: 7px 12px;
-    background: rgba(255,255,255,0.9); color: #333; font: inherit; font-size: 0.82rem; font-weight: 700; box-shadow: 0 1px 4px rgba(0,0,0,0.25); }
-  .world.picture-mode .paint-replay { display: block; }
-  .paint-clip { position: absolute; inset: 0; z-index: 18; background: rgba(20, 24, 30, 0.82); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; }
-  .paint-clip[hidden] { display: none; }
-  .paint-clip { padding-top: 64px; }
-  .paint-clip video { height: min(62%, 420px); width: auto; max-width: 80%; aspect-ratio: 360 / 508; border-radius: 10px; border: 3px solid #fff; background: #000; box-shadow: 0 6px 20px rgba(0,0,0,0.5); }
-  .paint-clip p { margin: 0; color: #fff; font-weight: 700; font-size: 0.9rem; }
-  .paint-clip small { color: rgba(255,255,255,0.7); font-size: 0.75rem; }
+  /* 世界が変わるとき：ゆっくり切りかえ、少しゆれて光る */
+  .picture-box.changing .pic-img { transition-duration: 3.2s; }
+  .picture-box.changing { animation: world-change 3.4s ease-in-out; }
+  @keyframes world-change {
+    0% { scale: 1; filter: none; } 30% { scale: 0.97; filter: brightness(1.15) saturate(0.8); }
+    65% { scale: 1.03; filter: brightness(1.25); } 100% { scale: 1; filter: none; } }
   .world.picture-mode .ground, .world.picture-mode .plant, .world.picture-mode .scene { display: none; }
   .picture { position: absolute; left: 8px; right: 8px; top: 118px; bottom: 8px; display: grid; place-items: center; }
   .picture-box { position: relative; height: 100%; width: auto; max-width: 100%; aspect-ratio: 680 / 962;
@@ -437,8 +434,6 @@
         <img class="pic-img" alt=""><img class="pic-img" alt="">
         <div class="god-layer" id="godLayer"></div>
       </div></div>
-      <button type="button" class="paint-replay" id="paintReplay">🎬 絵づくりを見る</button>
-      <div class="paint-clip" id="paintClip" hidden><video muted playsinline preload="none"></video><p id="paintClipLabel"></p><small>さわると とばせます</small></div>
       <div class="dq-flash" id="dqFlash" hidden></div>
       <div class="form-portrait" id="formPortrait" aria-hidden="true" hidden></div>
       <div class="dq-box" id="dqBox" role="status" aria-live="polite" hidden><p id="dqText"></p><span class="dq-next" aria-hidden="true">▼</span></div>
@@ -1000,14 +995,16 @@
     { img: 'niwatori',  name: 'ニワトリの神さま',   petal: '#b9cbd3', center: '#b4507e', leaf: '#7c8f6a' },
     { img: 'dogu',      name: '玉座の女神',         petal: '#2bb3a3', center: '#9b46b8', leaf: '#3b7f8a' },
     // ここから下は Lv11「神々の野」からの新しい神さま。花が咲くと、絵の上にすわる
-    { img: 'doratan2',   name: 'ドラタン',   petal: '#f2e21b', center: '#d0124a', leaf: '#4fbfbd' },
-    { img: 'yamagami',   name: '山神',       petal: '#4a6fd0', center: '#ff7a2f', leaf: '#6fd0c8' },
-    { img: 'tsurukame2', name: 'ツルッ亀',   petal: '#fbfbf6', center: '#d8292f', leaf: '#8bbf3f' },
-    { img: 'mito',       name: 'ミトさん',   petal: '#fbeedd', center: '#e2457f', leaf: '#8aa36b' },
-    { img: 'ikushima2',  name: '生島神',     petal: '#2bb3c9', center: '#f2d23a', leaf: '#7fae86' },
-    { img: 'dokuusagi',  name: 'ドクウサギ', petal: '#ffffff', center: '#f6a8c8', leaf: '#7fc96a' },
-    { img: 'momo',       name: 'ももちゃん', petal: '#f49ec4', center: '#d6377f', leaf: '#6fbf5a' },
-    { img: 'ashishima',  name: '足島神',     petal: '#c8a86a', center: '#2fa8c8', leaf: '#3fa34a' },
+    { img: 'yamagami',   name: '山神',         petal: '#4a6fd0', center: '#ff7a2f', leaf: '#6fd0c8' },
+    { img: 'mito',       name: 'ミトさん',     petal: '#fbeedd', center: '#e2457f', leaf: '#8aa36b' },
+    { img: 'ikushima2',  name: '生島神',       petal: '#2bb3c9', center: '#f2d23a', leaf: '#7fae86' },
+    { img: 'dokuusagi',  name: 'ドクウサギ',   petal: '#ffffff', center: '#f6a8c8', leaf: '#7fc96a' },
+    { img: 'momo',       name: 'ももちゃん',   petal: '#f49ec4', center: '#d6377f', leaf: '#6fbf5a' },
+    { img: 'ashishima',  name: '足島神',       petal: '#c8a86a', center: '#2fa8c8', leaf: '#3fa34a' },
+    { img: 'uzume',      name: '天宇受売命',   petal: '#c0368f', center: '#f4c2c8', leaf: '#7fae5a' },
+    { img: 'shikou',     name: '思考中の神さま', petal: '#e8b48c', center: '#4d5a36', leaf: '#6b7a4a' },
+    { img: 'suseri',     name: '須勢理毘売命', petal: '#f2b8c6', center: '#9ccaa8', leaf: '#5f8f6a' },
+    { img: 'wakahiko',   name: '天若日子',     petal: '#f4f4f0', center: '#a01e3a', leaf: '#7a9ac8' },
   ];
   const FIRST_GODS = 11; // Lv10 までの「はじめの神さま」の数。これより後は、神々の野で集める新しい神さま
   const isNewGod = (f) => f.char >= FIRST_GODS;
@@ -1351,23 +1348,16 @@
     if (layer.dataset.html !== html) { layer.innerHTML = html; layer.dataset.html = html; }
   }
 
-  // 絵を描いているところの動画（chars/paint/11.mp4〜20.mp4。レベルごとに続きの場面）を、順番に流す。さわると とばせる
-  function playPaintClips(levels, done) {
-    const box = document.getElementById('paintClip');
-    const video = box.querySelector('video');
-    let i = 0;
-    const finish = () => { video.onended = video.onerror = box.onclick = null; video.pause(); box.hidden = true; if (done) done(); };
-    const next = () => {
-      if (i >= levels.length) return finish();
-      document.getElementById('paintClipLabel').textContent = '🖌 Lv' + levels[i] + ' の絵を描いているところ';
-      video.src = 'chars/paint/' + levels[i++] + '.mp4';
-      video.play().catch(next);
-    };
-    video.onended = next;
-    video.onerror = next;
-    box.onclick = finish;
-    box.hidden = false;
-    next();
+  // 神々の野でレベルが上がったとき：前の世界から、新しい世界へ ゆっくり変わっていく
+  function changeWorld(before, done) {
+    renderWorld(before);
+    const box = document.getElementById('pictureBox');
+    setTimeout(() => {
+      box.classList.remove('changing'); void box.offsetWidth; box.classList.add('changing');
+      renderWorld();
+      [[20, 30], [75, 35], [35, 55], [65, 62], [50, 45], [28, 75], [72, 80]].forEach(([x, y], i) => floatText(i % 2 ? '✨' : '🌟', 'sparkle', x, y, 0.3 + i * 0.25));
+      setTimeout(() => { box.classList.remove('changing'); done(); }, 3400);
+    }, 900);
   }
   // showStage を渡すと、その段階の見た目で描く（新しい世界に入る前の演出用）
   function renderWorld(showStage) {
@@ -1380,7 +1370,7 @@
     document.getElementById('picture').hidden = !pictureMode;
     if (pictureMode) {
       document.getElementById('stageName').textContent = 'Lv' + stage.level + '　' + stage.name;
-      document.getElementById('stageInfo').textContent = next
+      document.getElementById('stageInfo').textContent = showStage ? 'これまで ' + steps.toLocaleString() + ' 歩' : next
         ? 'あと ' + (20 - stage.level) + '段階で 世界が完成・次まで あと ' + (next.requiredSteps - steps).toLocaleString() + ' 歩'
         : 'これまで ' + steps.toLocaleString() + ' 歩・神々の世界が完成！';
       drawPicture(stage.level);
@@ -1417,12 +1407,6 @@
   }
 
   // 地図と世界の切りかえ
-  // これまでのレベルの「絵を描いているところ」を、まとめて見る
-  document.getElementById('paintReplay').addEventListener('click', () => {
-    const levels = [];
-    for (let lv = 11; lv <= getStage(totalSteps()).level; lv++) levels.push(lv);
-    playPaintClips(levels);
-  });
   function showView(name) {
     const world = name === 'world';
     document.getElementById('world').hidden = !world;
@@ -1541,12 +1525,8 @@
       floatText('+' + walkedSteps.toLocaleString() + ' 歩', 'steps-pop', 62, 55);
       if (after.level > before.level) {
         if (before.level >= 11) {
-          // 神々の野でレベルが上がった：絵を描いているところを見せてから、色が広がる
-          const levels = [];
-          for (let lv = before.level + 1; lv <= after.level; lv++) levels.push(lv);
-          renderWorld(before);
-          playPaintClips(levels, () => {
-            renderWorld();
+          // 神々の野でレベルが上がった：世界が変わっていく
+          changeWorld(before, () => {
             playFanfare();
             showMessages(['レベルが あがった！', 'Lv' + after.level + '「' + after.name + '」'], checkForm);
           });
@@ -1699,7 +1679,7 @@
       'おや？ 花の森の むこうに なにかが 見える……',
       'なんと！ まっさらな 野が ひらけた！',
       shrine.flowers.some((f) => f.bloomAt) ? '神々が 野に 降りたっていく……' : '花の森の 木が 野に たった……',
-      'これからは 歩くたびに 神々の まわりから 色が ついていくぞ。 神々の世界を 完成させよう！',
+      'これからは 歩くたびに 世界が すこしずつ かわり、できあがっていくぞ。 神々の世界を 完成させよう！',
     ], () => {
       const flash = document.getElementById('dqFlash');
       flash.hidden = false;
@@ -1707,7 +1687,7 @@
       setTimeout(() => renderWorld(), 450); // 真っ白になったところで切りかえる
       setTimeout(() => {
         flash.hidden = true;
-        playPaintClips([11], () => showMessages(['Lv' + stage.level + '「' + stage.name + '」！', 'ぼうけんは まだまだ つづく！'], done));
+        showMessages(['Lv' + stage.level + '「' + stage.name + '」！', 'ぼうけんは まだまだ つづく！'], done);
       }, 1300);
     });
   }
