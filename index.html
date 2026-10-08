@@ -158,9 +158,30 @@
   .plant.levelup { animation: levelup 0.9s cubic-bezier(.3,1.6,.5,1), sway 4s ease-in-out infinite alternate; }
   @keyframes levelup { 0% { scale: 0.3; opacity: 0.2; } 60% { scale: 1.18; opacity: 1; } 100% { scale: 1; } }
   /* Lv11〜：大きな絵（見えていない所はうっすら） */
-  .world.picture-mode { background: #fff; }
+  .world.picture-mode { background: linear-gradient(#fdfdf8, #f1f4e6); } /* まっさらな野 */
+  .god-layer { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+  .pgod { position: absolute; translate: -50% -100%; transition: opacity 1.2s ease; animation: pgod-bob 4.6s ease-in-out infinite alternate; }
+  .pgod.tree { left: 50%; top: 72%; }
+  .pgod.newgod img { height: 40px; }
+  @keyframes pgod-bob { from { translate: -50% -100%; } to { translate: -50% -108%; } }
+  .pgod::after { content: ''; position: absolute; left: 50%; bottom: -3px; translate: -50% 0; width: 34px; height: 8px; border-radius: 50%; background: rgba(60, 50, 20, 0.18); z-index: -1; }
+  .pgod img { display: block; height: 46px; max-width: 64px; object-fit: contain; object-position: bottom;
+    filter: drop-shadow(0 0 3px #fff) drop-shadow(0 1px 1px rgba(0,0,0,0.3)); animation: kami-sway 3.4s ease-in-out infinite alternate; transform-origin: 50% 100%; }
+  .pgod.tree { font-size: 46px; line-height: 1; }
+  /* 絵を描いているところの動画 */
+  /* 世界が変わるとき：ゆっくり切りかえ、少しゆれて光る */
+  .picture-box.changing .pic-img { transition-duration: 3.2s; }
+  .picture-box.changing { animation: world-change 3.4s ease-in-out; }
+  @keyframes world-change {
+    0% { scale: 1; filter: none; } 30% { scale: 0.97; filter: brightness(1.15) saturate(0.8); }
+    65% { scale: 1.03; filter: brightness(1.25); } 100% { scale: 1; filter: none; } }
   .world.picture-mode .ground, .world.picture-mode .plant, .world.picture-mode .scene { display: none; }
-  .picture { position: absolute; left: 0; right: 0; top: 120px; bottom: 0; width: 100%; height: calc(100% - 120px); }
+  .picture { position: absolute; left: 8px; right: 8px; top: 118px; bottom: 8px; display: grid; place-items: center; }
+  .picture-box { position: relative; height: 100%; width: auto; max-width: 100%; aspect-ratio: 680 / 962;
+    border-radius: 8px; overflow: hidden; background: #fcfdf6; box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+    animation: pic-breathe 26s ease-in-out infinite alternate; }
+  .pic-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; transition: opacity 1.2s ease; }
+  @keyframes pic-breathe { from { scale: 1; translate: 0 0; } to { scale: 1.05; translate: -1% 1%; } }
   .world.picture-mode .world-title { z-index: 2; }
   /* ===== ドラクエ風のメッセージ窓 ===== */
   .dq-box {
@@ -176,8 +197,13 @@
   @keyframes dq-blink { 50% { opacity: 0; } }
   .form-portrait { position: absolute; left: 0; right: 0; bottom: 150px; z-index: 18; display: flex; justify-content: center; pointer-events: none; }
   .form-portrait img { height: 180px; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.35)); }
+  .form-portrait img:not(.scene) { position: relative; }
+  .form-portrait .scene { position: absolute; top: auto; bottom: 20px; left: 50%; transform: translateX(-50%); height: 290px; width: auto; border-radius: 14px; box-shadow: 0 6px 20px rgba(0,0,0,0.4); }
+  .form-portrait .scene + img { height: 140px; margin: 0 0 -10px 150px; }
   .form-portrait.pop img { animation: portrait-pop 0.9s cubic-bezier(.3,1.6,.5,1); }
   @keyframes portrait-pop { 0% { transform: scale(0.2); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+  .form-portrait.pop .scene { animation: scene-in 0.9s ease-out; }
+  @keyframes scene-in { 0% { opacity: 0; transform: translateX(-50%) scale(0.9); } 100% { opacity: 1; transform: translateX(-50%); } }
   .dq-flash { position: absolute; inset: 0; z-index: 19; background: #fff; opacity: 0; pointer-events: none; }
   .dq-flash.go { animation: dq-flash 1.3s ease-in-out forwards; }
   @keyframes dq-flash { 0% { opacity: 0; } 35% { opacity: 1; } 55% { opacity: 1; } 100% { opacity: 0; } }
@@ -311,7 +337,7 @@
   .kami img { position: absolute; left: 50%; bottom: 90px; translate: -50% 0; height: 116px; max-width: 170px; object-fit: contain; object-position: bottom;
     filter: drop-shadow(0 1px 1px rgba(0,0,0,0.3)); animation: kami-sway 3.4s ease-in-out infinite alternate; transform-origin: 50% 100%; }
   .world.picture-mode .kami-layer { display: none; } /* Lv11〜の絵の場面には出さない */
-  @media (prefers-reduced-motion: reduce) { .kami img { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .kami img, .pgod img, .pgod, .picture-box { animation: none; } }
   /* ===== 神社の花畑 ===== */
   .shrine { border: 2px solid var(--track); border-radius: 18px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
   .shrine-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
@@ -335,6 +361,7 @@
   .shrine-pin { font-size: 20px; line-height: 26px; width: 26px; height: 26px; text-align: center; background: #fff; border: 2px solid #b3262d; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
   .cat-icon img { width: 100%; height: 100%; display: block; transform-origin: 50% 100%; animation: step 0.42s ease-in-out infinite; }
   .cat-icon.west img { transform: scaleX(-1); }
+  .god-follow img { object-fit: contain; object-position: bottom; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.35)); }
   @media (prefers-reduced-motion: reduce) { .shrine-slot img, .cat-icon img { animation: none; } }
   /* ===== 成長の記録 ===== */
   .record-page {
@@ -409,7 +436,10 @@
       <div class="kami-layer" id="kamiLayer" aria-hidden="true"></div>
       <div class="plant" id="plant" aria-hidden="true">🫘</div>
       <div class="ground"></div>
-      <canvas class="picture" id="picture" aria-hidden="true" hidden></canvas>
+      <div class="picture" id="picture" aria-hidden="true" hidden><div class="picture-box" id="pictureBox">
+        <img class="pic-img" alt=""><img class="pic-img" alt="">
+        <div class="god-layer" id="godLayer"></div>
+      </div></div>
       <div class="dq-flash" id="dqFlash" hidden></div>
       <div class="form-portrait" id="formPortrait" aria-hidden="true" hidden></div>
       <div class="dq-box" id="dqBox" role="status" aria-live="polite" hidden><p id="dqText"></p><span class="dq-next" aria-hidden="true">▼</span></div>
@@ -498,17 +528,17 @@
     { level: 8,  emoji: '🌳', size: 1.15, name: '動物が住みはじめた', requiredSteps: 300000 },
     { level: 9,  emoji: '🌳', size: 1.2,  name: '小さな森になった',   requiredSteps: 400000 },
     { level: 10, emoji: '🌳', size: 1.55, name: '花いっぱいの森',     requiredSteps: 550000 },
-    // Lv11〜20：大きな絵の世界が、少しずつ見えてくる
-    { level: 11, picture: true, name: 'キノコの丘が見えた',     requiredSteps: 650000 },
-    { level: 12, picture: true, name: 'ネコとヘルメットの子',   requiredSteps: 750000 },
-    { level: 13, picture: true, name: 'カタツムリがやって来た', requiredSteps: 850000 },
-    { level: 14, picture: true, name: 'くだものの島',           requiredSteps: 950000 },
-    { level: 15, picture: true, name: '空飛ぶネコと花',         requiredSteps: 1050000 },
-    { level: 16, picture: true, name: 'ちょうちょが舞う',       requiredSteps: 1150000 },
-    { level: 17, picture: true, name: '船とワニ',               requiredSteps: 1250000 },
-    { level: 18, picture: true, name: 'イルカが顔を出した',     requiredSteps: 1350000 },
-    { level: 19, picture: true, name: 'イルカのジャンプ',       requiredSteps: 1450000 },
-    { level: 20, picture: true, name: 'ふしぎな塔の世界',       requiredSteps: 1600000 },
+    // Lv11〜20：神々の野。まっさらな野に神々が降り、そこから世界の絵ができあがっていく
+    { level: 11, picture: true, name: '神々の野',           requiredSteps: 650000 },
+    { level: 12, picture: true, name: '緑の土台ができた',   requiredSteps: 750000 },
+    { level: 13, picture: true, name: '色がおかれた',       requiredSteps: 850000 },
+    { level: 14, picture: true, name: 'キノコが生まれた',   requiredSteps: 950000 },
+    { level: 15, picture: true, name: '岸ができてきた',     requiredSteps: 1050000 },
+    { level: 16, picture: true, name: '川が青くなった',     requiredSteps: 1150000 },
+    { level: 17, picture: true, name: '家が建った',         requiredSteps: 1250000 },
+    { level: 18, picture: true, name: '船が浮かんだ',       requiredSteps: 1350000 },
+    { level: 19, picture: true, name: 'ネコが船に乗った',   requiredSteps: 1450000 },
+    { level: 20, picture: true, name: '世界が完成した',     requiredSteps: 1600000 },
   ];
   // 成長したときの記録とお知らせ：[絵文字, 成長の記録に書くこと, 歩いている途中に出すお知らせ, 次の成長までの表示]
   const GROWTH = {
@@ -521,16 +551,16 @@
     8:  ['🐇', '動物が住みはじめた',     '動物が住みはじめました！', '動物が住みはじめるよ'],
     9:  ['🌲', '小さな森になった',       '小さな森になりました！', '小さな森になるよ'],
     10: ['🌸', '花いっぱいの森になった', '森が花でいっぱいになりました！', '花いっぱいの森になるよ'],
-    11: ['✨', '新しい世界が見えた（キノコの丘）', '森のむこうに 新しい世界が見えました！', '新しい世界が見えるよ'],
-    12: ['🐱', 'ネコとヘルメットの子が見えた', 'ネコとヘルメットの子が見えました！', 'ネコとヘルメットの子が見えるよ'],
-    13: ['🐌', 'カタツムリがやって来た', 'カタツムリがやって来ました！', 'カタツムリがやって来るよ'],
-    14: ['🍎', 'くだものの島が見えた',   'くだものの島が見えました！', 'くだものの島が見えるよ'],
-    15: ['🌺', '空飛ぶネコと花が見えた', '空飛ぶネコと花が見えました！', '空飛ぶネコと花が見えるよ'],
-    16: ['🦋', 'ちょうちょが舞った',     'ちょうちょが舞いはじめました！', 'ちょうちょが舞うよ'],
-    17: ['⛵', '船とワニが見えた',       '船とワニが見えました！', '船とワニが見えるよ'],
-    18: ['🐬', 'イルカが顔を出した',     'イルカが顔を出しました！', 'イルカが顔を出すよ'],
-    19: ['🐬', 'イルカがジャンプした',   'イルカがジャンプしました！', 'イルカがジャンプするよ'],
-    20: ['🗼', 'ふしぎな塔の世界が全部見えた', 'ふしぎな塔の世界が 全部見えました！', 'ふしぎな塔の世界が全部見えるよ'],
+    11: ['⛩', '神々が まっさらな野に 降りたった', '神々が まっさらな野に 降りたちました！', '神々の野が ひらけるよ'],
+    12: ['🌱', '緑の土台ができた',       '野に 緑の土台が できました！', '緑の土台が できるよ'],
+    13: ['🎨', '色がおかれた',           '世界に 色が おかれました！', '色が おかれるよ'],
+    14: ['🍄', 'キノコが生まれた',       'キノコが 生まれました！', 'キノコが 生まれるよ'],
+    15: ['🪨', '岸ができてきた',         '岸が できてきました！', '岸が できてくるよ'],
+    16: ['💧', '川が青くなった',         '川が 青く なりました！', '川が 青くなるよ'],
+    17: ['🏠', '家が建った',             '家が 建ちました！', '家が 建つよ'],
+    18: ['🛶', '船が浮かんだ',           '船が 浮かびました！', '船が 浮かぶよ'],
+    19: ['🐱', 'ネコが船に乗った',       'ネコが 船に 乗りました！', 'ネコが 船に 乗るよ'],
+    20: ['✨', '世界が完成した',         '世界が 完成しました！', '世界が 完成するよ'],
   };
   const NEAR_STEPS = 2000;       // 次の成長まで これより少なければ「あと少し！」と出す
   const STEPS_PER_MIN = 100;     // 1分で歩くおよその歩数（あと何分かの めやす）
@@ -551,19 +581,16 @@
     { level: 10, emoji: '🐝', x: 60, y: 44, size: 24, move: 'fly' },
     { level: 10, emoji: '🌻', x: 30, y: 17, size: 30, move: 'sway' },
   ];
-  // Lv11〜19 で見えてくる場所（大きな絵の中の位置 x, y, 幅, 高さ。絵は 678×820）。Lv20 で全部見える
-  const PICTURE_SIZE = [678, 820];
-  const PICTURE_REVEALS = {
-    11: [[560, 330, 118, 280]],                   // キノコと花
-    12: [[410, 380, 160, 110]],                   // ネコとヘルメットの子
-    13: [[240, 650, 120, 100]],                   // カタツムリに乗った子
-    14: [[215, 470, 260, 190]],                   // くだものの島
-    15: [[560, 0, 118, 90], [270, 0, 120, 130]],  // 空飛ぶネコ、電球の花
-    16: [[180, 40, 90, 100], [270, 210, 100, 90]], // ちょうちょ
-    17: [[340, 590, 338, 230]],                   // 船とワニ
-    18: [[0, 570, 250, 250]],                     // イルカと帽子の人
-    19: [[0, 120, 330, 450]],                     // 恐竜とジャンプするイルカ
-  };
+  // Lv11〜20：神々の野。Lv11 はまっさらな野、Lv12 から まりおさんの絵が だんだん仕上がっていく
+  const picturePath = (level) => level >= 12 ? 'chars/world/' + Math.min(20, level) + '.jpg' : '';
+  // はじめの神さま（Lv10 までに集めた神さま）を置く場所（絵の中の 横・縦の割合）
+  const GOD_SPOTS = [[0.5, 0.62], [0.78, 0.33], [0.2, 0.4], [0.26, 0.85], [0.8, 0.8], [0.5, 0.2],
+                     [0.88, 0.55], [0.1, 0.62], [0.56, 0.95], [0.16, 0.18], [0.86, 0.14]];
+  // あとから来た神さま（Lv11 からの神さま）が すわる場所
+  const NEW_GOD_SPOTS = [[0.3, 0.3], [0.7, 0.47], [0.18, 0.72], [0.62, 0.72], [0.44, 0.44],
+                         [0.84, 0.66], [0.12, 0.48], [0.66, 0.22], [0.36, 0.88], [0.9, 0.9], [0.08, 0.9]];
+  // はじめの神さまは、絵ができるにつれて うすくなり、Lv18 でいなくなる
+  const oldGodOpacity = (level) => Math.max(0, Math.min(1, (18 - level) / 6));
 
   // 送ってもらった絵のキャラクター（img: chars/ の画像、size: 高さpx）。Lv3 から少しずつ増える
   DECORATIONS.push(
@@ -615,7 +642,7 @@
   let walks = [];
   let current = null;            // 記録中の散歩（記録していないときはnull）
   let shrine = { flowers: [], points: 0, visited: {}, log: [] }; // 神社の花畑（flowers: { char, seedAt, points, bloomAt }）
-  let form = 'normal';           // いまのすがた：'normal'（ふつう）/ 'god'（神）/ 'zou'（象人間）
+  let form = 'normal';           // いまのすがた：'normal'（ふつう）/ 'god'（神）/ 'zou'（象人間）/ 'hebi'（顔ヘビ）
 
   // ?demo をつけて開くと、サンプルの記録で動く（スマホの本当の記録は読まないし、書きかえない）
   const DEMO = /[?&]demo/.test(location.search);
@@ -786,7 +813,16 @@
     god:    { src: 'chars/god.png',  w: 46, h: 64, alt: '雲に乗った神さま' },
     zou:    { src: 'chars/zou.png',  w: 56, h: 52, alt: '象人間' },
     ganesha:{ src: 'chars/ganesha.png', w: 58, h: 62, alt: 'ガネーシャ' },
+    hebi:   { src: 'chars/kaohebi.png', w: 54, h: 55, alt: '顔ヘビ' },
   };
+  // ふつうのすがたのときは、ときどき走ったりピースしたりする
+  const WALKER_POSES = ['chars/walker_run.png', 'chars/walker_peace.png'];
+  setInterval(() => {
+    const img = document.querySelector('#walkerEl img');
+    if (!img || form !== 'normal') return;
+    img.src = WALKER_POSES[Math.floor(Math.random() * WALKER_POSES.length)];
+    setTimeout(() => { if (form === 'normal') img.src = WALKER_LOOKS.normal.src; }, 2500);
+  }, 12000);
   function walkerIcon() {
     const look = WALKER_LOOKS[form] || WALKER_LOOKS.normal;
     return L.divIcon({ className: '', iconSize: [look.w, look.h], iconAnchor: [look.w / 2, look.h - 2],
@@ -861,7 +897,7 @@
       if (segs.length) L.polyline(segs, { color: pathColor(), weight: 6, opacity: 0.85, lineCap: 'round' }).addTo(dayLayer);
       segs.forEach((seg) => bounds.push(...seg));
     }
-    if (bounds.length > 1 && !current) map.fitBounds(bounds, { paddingTopLeft: [40, 80], paddingBottomRight: [40, 50] });
+    if (bounds.length > 1 && !current) map.fitBounds(bounds, { paddingTopLeft: [40, 80], paddingBottomRight: [40, 50], animate: false }); // 動きながら寄せると、再生のときの近さが上書きされてしまうので、すぐに切りかえる
     if (!list.length && !current) {
       showNote(isToday ? '「歩きはじめる」を押すと、歩いた道がここに線で残ります。' : 'この日の記録はありません。');
     } else {
@@ -960,6 +996,7 @@
   const POINT_STAY_MS = 60000;         // ポイントがもらえる時間
   const BLOOM_STEPS = [2, 4, 6];       // 芽・つぼみ・花になるポイント
   const CAT_POINTS = 10;               // 神社ポイントの合計がこれだけたまると、ネコがついてくる
+  const GOD_GAP_PX = 34;               // ついてくる神さまどうしの間（画面の上で）
   // 花に座る神さま（来る順）。花の色は、その神さまの色に合わせる
   const SHRINE_CHARS = [
     { img: 'biwa',      name: '琵琶をひく女神',     petal: '#f3c6de', center: '#b48ad0', leaf: '#7fae86' },
@@ -973,7 +1010,20 @@
     { img: 'robo',      name: 'からくりだるま',     petal: '#9c5a66', center: '#d6d6d6', leaf: '#6e6f63' },
     { img: 'niwatori',  name: 'ニワトリの神さま',   petal: '#b9cbd3', center: '#b4507e', leaf: '#7c8f6a' },
     { img: 'dogu',      name: '玉座の女神',         petal: '#2bb3a3', center: '#9b46b8', leaf: '#3b7f8a' },
+    // ここから下は Lv11「神々の野」からの新しい神さま。花が咲くと、絵の上にすわる
+    { img: 'yamagami',   name: '山神',         petal: '#4a6fd0', center: '#ff7a2f', leaf: '#6fd0c8' },
+    { img: 'mito',       name: 'ミトさん',     petal: '#fbeedd', center: '#e2457f', leaf: '#8aa36b' },
+    { img: 'ikushima2',  name: '生島神',       petal: '#2bb3c9', center: '#f2d23a', leaf: '#7fae86' },
+    { img: 'dokuusagi',  name: 'ドクウサギ',   petal: '#ffffff', center: '#f6a8c8', leaf: '#7fc96a' },
+    { img: 'momo',       name: 'ももちゃん',   petal: '#f49ec4', center: '#d6377f', leaf: '#6fbf5a' },
+    { img: 'ashishima',  name: '足島神',       petal: '#c8a86a', center: '#2fa8c8', leaf: '#3fa34a' },
+    { img: 'uzume',      name: '天宇受売命',   petal: '#c0368f', center: '#f4c2c8', leaf: '#7fae5a' },
+    { img: 'shikou',     name: '思考中の神',   petal: '#e8b48c', center: '#4d5a36', leaf: '#6b7a4a' },
+    { img: 'suseri',     name: '須勢理毘売命', petal: '#f2b8c6', center: '#9ccaa8', leaf: '#5f8f6a' },
+    { img: 'wakahiko',   name: '天若日子',     petal: '#f4f4f0', center: '#a01e3a', leaf: '#7a9ac8' },
   ];
+  const FIRST_GODS = 11; // Lv10 までの「はじめの神さま」の数。これより後は、神々の野で集める新しい神さま
+  const isNewGod = (f) => f.char >= FIRST_GODS;
   let shrineList = [];   // 近くの神社 [{ id, name, lat, lng, box }]
   let shrineArea = null; // 神社を調べた場所と時刻
   let shrineLoading = 0;
@@ -1176,9 +1226,10 @@
     if (!shrine.flowers.length) text = '<b>ふしぎな種</b>がもらえる神社があります。神社に<b>3分</b>いると、種が手に入るかも！花が咲くと、神さまがやってきます。';
     else if (g) text = '神社に<b>1分</b>いるたびに1ポイント（同じ神社は1日1回）。あと<b>' + (BLOOM_STEPS[2] - g.points) + 'ポイント</b>で花が咲きます。';
     else if (shrine.flowers.length < total) text = '花が咲きました！ 神社に<b>3分</b>いると、次の種が手に入ります。';
-    else text = '11の花が全部咲きました。神さまが勢ぞろい！';
+    else text = SHRINE_CHARS.length + 'の花が全部咲きました。神さまが勢ぞろい！';
     text += shrine.points >= CAT_POINTS ? '<br>🐈 ネコが いっしょに歩いてくれます（道の再生で見られます）'
       : shrine.flowers.length ? '<br>あと<b>' + (CAT_POINTS - shrine.points) + 'ポイント</b>で、だれかが ついてくるかも…' : '';
+    if (shrine.flowers.some((f) => f.bloomAt)) text += '<br>🚶 花が咲いた神さまは、道の再生で いっしょに歩いてくれます';
     document.getElementById('shrineText').innerHTML = text;
   }
 
@@ -1203,10 +1254,11 @@
     walks.push(mk(Date.now() - 2 * 3600000, 2400, 35.6812, 139.7671, true));
     walks = walks.map(cleanWalk);
     const fl = [], log = [];
-    for (let i = 0; i < 11; i++) {
-      const seedAt = today - (24 - i * 2) * 86400000 + 10 * 3600000;
-      const bloomAt = i < 10 ? seedAt + 1.5 * 86400000 : null;
-      fl.push({ char: i, seedAt, points: i < 10 ? BLOOM_STEPS[2] : 4, bloomAt, shrine: 'サンプル神社' });
+    const DEMO_FLOWERS = 15;
+    for (let i = 0; i < DEMO_FLOWERS; i++) {
+      const seedAt = today - (30 - i * 2) * 86400000 + 10 * 3600000;
+      const bloomAt = i < DEMO_FLOWERS - 1 ? seedAt + 1.5 * 86400000 : null;
+      fl.push({ char: i, seedAt, points: i < DEMO_FLOWERS - 1 ? BLOOM_STEPS[2] : 4, bloomAt, shrine: 'サンプル神社' });
       log.push({ t: seedAt, type: 'seed', shrine: 'サンプル神社' });
       if (bloomAt) log.push({ t: bloomAt, type: 'bloom', char: i, shrine: 'サンプル神社' });
       if (i === 2) log.push({ t: seedAt + 86400000, type: 'cat' });
@@ -1282,59 +1334,48 @@
     page.scrollTop = 0;
   }
 
-  // 大きな絵を描く。見えた場所ははっきり、まだの所はうっすら
-  const pictureImage = new Image();
-  pictureImage.src = 'chars/world20.jpg';
-  pictureImage.onload = () => { if (!document.getElementById('world').hidden) renderWorld(); };
+  // 神々の野を描く。絵が変わるときは、ふんわり重ねて切りかえる
+  let pictureNow = '';   // いま出している絵
+  let pictureFront = 0;  // 2枚のうち、手前にあるほう
   function drawPicture(level) {
-    const canvas = document.getElementById('picture');
-    const box = canvas.getBoundingClientRect();
-    if (!pictureImage.complete || !box.width) return;
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = Math.round(box.width * dpr); canvas.height = Math.round(box.height * dpr);
-    const ctx = canvas.getContext('2d');
-    const [iw, ih] = PICTURE_SIZE;
-    // 見えている所だけを大きく映す。レベルが上がるほど引いていき、Lv20 で全体が見える
-    let x0 = 0, y0 = 0, x1 = iw, y1 = ih;
-    if (level < 20) {
-      x0 = iw; y0 = ih; x1 = 0; y1 = 0;
-      for (let lv = 11; lv <= level; lv++) {
-        for (const [x, y, w, h] of PICTURE_REVEALS[lv] || []) {
-          x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x + w); y1 = Math.max(y1, y + h);
-        }
-      }
-      const pad = 0.12 * Math.max(x1 - x0, y1 - y0);
-      x0 -= pad; y0 -= pad; x1 += pad; y1 += pad;
-      // 画面の縦横の比に合わせて広げる（絵の外にははみ出さない）
-      const aspect = canvas.width / canvas.height;
-      let w = x1 - x0, h = y1 - y0;
-      if (w / h < aspect) { const nw = Math.min(iw, h * aspect); x0 -= (nw - w) / 2; w = nw; }
-      else { const nh = Math.min(ih, w / aspect); y0 -= (nh - h) / 2; h = nh; }
-      x0 = Math.max(0, Math.min(x0, iw - w)); y0 = Math.max(0, Math.min(y0, ih - h));
-      x1 = x0 + w; y1 = y0 + h;
+    const imgs = document.querySelectorAll('#pictureBox .pic-img');
+    const src = picturePath(level);
+    if (src !== pictureNow) {
+      const next = imgs[pictureFront ^ 1];
+      if (src) { next.src = src; next.hidden = false; } else { next.removeAttribute('src'); next.hidden = true; }
+      next.style.opacity = '1';
+      imgs[pictureFront].style.opacity = '0';
+      pictureFront ^= 1;
+      pictureNow = src;
     }
-    const scale = Math.min(canvas.width / (x1 - x0), canvas.height / (y1 - y0));
-    const dx = (canvas.width - (x1 - x0) * scale) / 2 - x0 * scale;
-    const dy = (canvas.height - (y1 - y0) * scale) / 2 - y0 * scale;
-    ctx.globalAlpha = level >= 20 ? 1 : 0.13;
-    ctx.drawImage(pictureImage, dx, dy, iw * scale, ih * scale);
-    ctx.globalAlpha = 1;
-    if (level >= 20) return;
-    // 見えた場所だけ、はっきり描く（ふちはぼかす）
-    const mask = document.createElement('canvas');
-    mask.width = canvas.width; mask.height = canvas.height;
-    const m = mask.getContext('2d');
-    m.filter = 'blur(' + Math.round(10 * dpr) + 'px)';
-    m.fillStyle = '#000';
-    for (let lv = 11; lv <= level; lv++) {
-      for (const [x, y, w, h] of PICTURE_REVEALS[lv] || []) m.fillRect(dx + x * scale, dy + y * scale, w * scale, h * scale);
-    }
-    m.filter = 'none';
-    m.globalCompositeOperation = 'source-in';
-    m.drawImage(pictureImage, dx, dy, iw * scale, ih * scale);
-    ctx.drawImage(mask, 0, 0);
+    // 神さまを 絵の上に置く
+    const flowers = shrine.flowers.filter((f) => f.bloomAt);
+    const old = flowers.filter((f) => !isNewGod(f)), fresh = flowers.filter(isNewGod);
+    const opacity = oldGodOpacity(level);
+    const put = (list, spots, op, cls) => list.map((f, i) => {
+      const c = SHRINE_CHARS[f.char];
+      const [x, y] = spots[i % spots.length];
+      return '<div class="pgod' + cls + '" style="left:' + (x * 100) + '%;top:' + (y * 100) + '%;opacity:' + op +
+        ';animation-delay:-' + (i * 0.7).toFixed(1) + 's"><img src="chars/shrine/' + c.img + '.png" alt="' + c.name + '"></div>';
+    }).join('');
+    let html = opacity > 0 ? put(old, GOD_SPOTS, opacity.toFixed(2), '') : '';
+    html += put(fresh, NEW_GOD_SPOTS, '1', ' newgod');
+    if (!flowers.length && level < 13) html = '<div class="pgod tree">🌳</div>';
+    const layer = document.getElementById('godLayer');
+    if (layer.dataset.html !== html) { layer.innerHTML = html; layer.dataset.html = html; }
   }
 
+  // 神々の野でレベルが上がったとき：前の世界から、新しい世界へ ゆっくり変わっていく
+  function changeWorld(before, done) {
+    renderWorld(before);
+    const box = document.getElementById('pictureBox');
+    setTimeout(() => {
+      box.classList.remove('changing'); void box.offsetWidth; box.classList.add('changing');
+      renderWorld();
+      [[20, 30], [75, 35], [35, 55], [65, 62], [50, 45], [28, 75], [72, 80]].forEach(([x, y], i) => floatText(i % 2 ? '✨' : '🌟', 'sparkle', x, y, 0.3 + i * 0.25));
+      setTimeout(() => { box.classList.remove('changing'); done(); }, 3400);
+    }, 900);
+  }
   // showStage を渡すと、その段階の見た目で描く（新しい世界に入る前の演出用）
   function renderWorld(showStage) {
     const steps = totalSteps();
@@ -1346,10 +1387,10 @@
     document.getElementById('picture').hidden = !pictureMode;
     if (pictureMode) {
       document.getElementById('stageName').textContent = 'Lv' + stage.level + '　' + stage.name;
-      document.getElementById('stageInfo').textContent = next
-        ? 'これまで ' + steps.toLocaleString() + ' 歩・次まで あと ' + (next.requiredSteps - steps).toLocaleString() + ' 歩'
-        : 'これまで ' + steps.toLocaleString() + ' 歩・最高の段階です';
-      requestAnimationFrame(() => drawPicture(stage.level));
+      document.getElementById('stageInfo').textContent = showStage ? 'これまで ' + steps.toLocaleString() + ' 歩' : next
+        ? 'あと ' + (20 - stage.level) + '段階で 世界が完成・次まで あと ' + (next.requiredSteps - steps).toLocaleString() + ' 歩'
+        : 'これまで ' + steps.toLocaleString() + ' 歩・神々の世界が完成！';
+      drawPicture(stage.level);
       return;
     }
     // 同じ段階の中でも、歩くほど少しずつ大きくなる
@@ -1500,7 +1541,13 @@
       const after = getStage(totalSteps());
       floatText('+' + walkedSteps.toLocaleString() + ' 歩', 'steps-pop', 62, 55);
       if (after.level > before.level) {
-        if (before.level < 11 && after.level >= 11) {
+        if (before.level >= 11) {
+          // 神々の野でレベルが上がった：世界が変わっていく
+          changeWorld(before, () => {
+            playFanfare();
+            showMessages(['レベルが あがった！', 'Lv' + after.level + '「' + after.name + '」'], checkForm);
+          });
+        } else if (before.level < 11 && after.level >= 11) {
           enterNewWorld(after, checkForm);
         } else {
           const plant = document.getElementById('plant');
@@ -1518,6 +1565,7 @@
   // ===== すがたが変わる（神 / 象人間） =====
   const GOD_DAYS = 7;          // 7日つづけて目標を達成すると、神になる
   const LAZY_DAYS = 3;         // 3日つづけてほとんど歩かないと、象人間になる
+  const HEBI_DAYS = 7;         // 7日つづけてほとんど歩かないと、顔ヘビになる
   const LAZY_STEPS = 1000;     // 1日これより少ないと「ほとんど歩いていない」
   const GANESHA_STEPS = 13000; // 1日にこれより多く歩くと、その日はガネーシャになる
   function stepsOfDay(day) {
@@ -1538,15 +1586,17 @@
     // 象人間：使いはじめて3日以上たっていて、今日をふくむ3日間ずっとほとんど歩いていない
     const firstDay = startOfDay(Math.min(...walks.map((w) => w.start)));
     if (today - firstDay >= LAZY_DAYS * 86400000 - 3600000 * 2) {
-      let lazy = true;
-      for (let n = 0; n < LAZY_DAYS; n++) if (stepsOfDay(dayBefore(today, n)) >= LAZY_STEPS) lazy = false;
-      if (lazy) return 'zou';
+      let lazyDays = 0;
+      while (lazyDays < HEBI_DAYS && stepsOfDay(dayBefore(today, lazyDays)) < LAZY_STEPS) lazyDays++;
+      if (lazyDays >= HEBI_DAYS && today - firstDay >= HEBI_DAYS * 86400000 - 3600000 * 2) return 'hebi';
+      if (lazyDays >= LAZY_DAYS) return 'zou';
     }
     return 'normal';
   }
   const FORM_MESSAGES = {
     god: ['なんと！', 'あなたは すごいので 神に なりました！', '（' + GOD_DAYS + '日 つづけて ' + DAILY_GOAL_STEPS.toLocaleString() + '歩 あるいた）'],
     zou: ['な、なんと！', 'なまけていたので 象人間に なってしまった！', '歩けば もとの すがたに もどれるぞ。'],
+    hebi: ['な、な、なんと！！', 'あまりにも なまけていたので', '怪鳥に 顔ヘビに されてしまった……', '歩けば もとの すがたに もどれるぞ。'],
     fromZou: ['のろいが とけた！', 'もとの すがたに もどった！'],
     ganesha: ['な、なんと！', 'きょうは ' + GANESHA_STEPS.toLocaleString() + '歩を こえたので', 'ガネーシャに なった！'],
     fromGanesha: ['ガネーシャの ちからが きえた……', 'また たくさん 歩けば ガネーシャに なれるぞ。'],
@@ -1560,8 +1610,8 @@
     save();
     showView('world');
     const lines = FORM_MESSAGES[next]
-      || (before === 'zou' ? FORM_MESSAGES.fromZou : before === 'ganesha' ? FORM_MESSAGES.fromGanesha : FORM_MESSAGES.fromGod);
-    if (next === 'zou') playSadTune(); else playFanfare(next === 'god' || next === 'ganesha');
+      || (before === 'zou' || before === 'hebi' ? FORM_MESSAGES.fromZou : before === 'ganesha' ? FORM_MESSAGES.fromGanesha : FORM_MESSAGES.fromGod);
+    if (next === 'zou' || next === 'hebi') playSadTune(); else playFanfare(next === 'god' || next === 'ganesha');
     showFormPortrait(next);
     showMessages(lines, () => hideFormPortrait());
   }
@@ -1569,7 +1619,7 @@
   function showFormPortrait(name) {
     const look = WALKER_LOOKS[name] || WALKER_LOOKS.normal;
     const el = document.getElementById('formPortrait');
-    el.innerHTML = '<img src="' + look.src + '" alt="' + look.alt + '">';
+    el.innerHTML = (name === 'hebi' ? '<img class="scene" src="chars/kaicho.jpg" alt="怪鳥">' : '') + '<img src="' + look.src + '" alt="' + look.alt + '">';
     el.hidden = false;
     el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
   }
@@ -1647,8 +1697,9 @@
     playFanfare(true);
     showMessages([
       'おや？ 花の森の むこうに なにかが 見える……',
-      'なんと！ あたらしい せかいへの みちが ひらかれた！',
-      'これからは 歩くたびに ふしぎな せかいが すこしずつ 見えてくるぞ。',
+      'なんと！ まっさらな 野が ひらけた！',
+      shrine.flowers.some((f) => f.bloomAt) ? '神々が 野に 降りたっていく……' : '花の森の 木が 野に たった……',
+      'これからは 歩くたびに 世界が すこしずつ かわり、できあがっていくぞ。 神々の世界を 完成させよう！',
     ], () => {
       const flash = document.getElementById('dqFlash');
       flash.hidden = false;
@@ -1709,6 +1760,11 @@
     walker = L.marker(points[0], { icon: walkerIcon(), zIndexOffset: 1000 }).addTo(dayLayer);
     // 神社ポイントがたまっていたら、ネコが少しうしろをついてくる
     const cat = shrine.points >= CAT_POINTS ? L.marker(points[0], { icon: catIcon, zIndexOffset: 900 }).addTo(dayLayer) : null;
+    // 花が咲いた神さまは、みんな列になってついてくる（新しく来た神さまから順に）
+    const gods = shrine.flowers.filter((f) => f.bloomAt).sort((a, b) => b.bloomAt - a.bloomAt)
+      .map((f, i) => L.marker(points[0], { icon: godIcon(SHRINE_CHARS[f.char]), zIndexOffset: 890 - i }).addTo(dayLayer));
+    // 地図の上で 列が見えるように、神さまどうしは画面で約 GOD_GAP_PX はなす（地図の近さが変わっても同じ間に見える）
+    const metersPerPx = () => 156543 * Math.cos(points[0][0] * Math.PI / 180) / Math.pow(2, map.getZoom());
 
     // breaks に入っている番号の点では、前の点と線をつなげない
 
@@ -1759,7 +1815,8 @@
         faceWalker(a, b);
         walker.setLatLng(pos);
       }
-      if (cat) moveCat(Math.max(0, traveled - CAT_GAP_M));
+      if (cat) moveFollower(cat, Math.max(0, traveled - CAT_GAP_M));
+      if (gods.length) { const gap = GOD_GAP_PX * metersPerPx(); gods.forEach((g, i) => moveFollower(g, Math.max(0, traveled - (cat ? CAT_GAP_M : 0) - gap * (i + 1)))); }
       followWalker();
       if (drawn < total) {
         replayTimer = requestAnimationFrame(frame);
@@ -1768,15 +1825,15 @@
         setReplayUI(false);
       }
     }
-    // ネコを、道にそって d メートルの所に置く
-    function moveCat(d) {
+    // ついてくる仲間（ネコ・神さま）を、道にそって d メートルの所に置く
+    function moveFollower(who, d) {
       let i = 1;
       while (i < total - 1 && cum[i] < d) i++;
       const a = points[i - 1], b = points[i];
       const seg = cum[i] - cum[i - 1];
       const f = seg > 0 ? Math.min(1, Math.max(0, (d - cum[i - 1]) / seg)) : 1;
-      cat.setLatLng([a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]);
-      const el = cat.getElement && cat.getElement();
+      who.setLatLng([a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]);
+      const el = who.getElement && who.getElement();
       if (el && el.firstChild) el.firstChild.classList.toggle('west', b[1] < a[1]);
     }
     replayTimer = requestAnimationFrame(frame);
@@ -1791,6 +1848,8 @@
     document.querySelectorAll('#speedPick button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.speed === name)));
   }
   const CAT_GAP_M = 7; // ネコは人の 7m うしろ
+  const godIcon = (c) => L.divIcon({ className: '', iconSize: [36, 40], iconAnchor: [18, 38],
+    html: '<div class="cat-icon god-follow" style="width:36px;height:40px"><img src="chars/shrine/' + c.img + '.png" alt="' + c.name + '"></div>' });
   const catIcon = L.divIcon({ className: '', iconSize: [34, 28], iconAnchor: [17, 26],
     html: '<div class="cat-icon" style="width:34px;height:28px"><img src="chars/cat_sit.png" alt="ついてくるネコ"></div>' });
 
