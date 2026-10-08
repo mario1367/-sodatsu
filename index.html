@@ -356,6 +356,7 @@
   .shrine-pin { font-size: 20px; line-height: 26px; width: 26px; height: 26px; text-align: center; background: #fff; border: 2px solid #b3262d; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
   .cat-icon img { width: 100%; height: 100%; display: block; transform-origin: 50% 100%; animation: step 0.42s ease-in-out infinite; }
   .cat-icon.west img { transform: scaleX(-1); }
+  .god-follow img { object-fit: contain; object-position: bottom; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.35)); }
   @media (prefers-reduced-motion: reduce) { .shrine-slot img, .cat-icon img { animation: none; } }
   /* ===== 成長の記録 ===== */
   .record-page {
@@ -882,7 +883,7 @@
       if (segs.length) L.polyline(segs, { color: pathColor(), weight: 6, opacity: 0.85, lineCap: 'round' }).addTo(dayLayer);
       segs.forEach((seg) => bounds.push(...seg));
     }
-    if (bounds.length > 1 && !current) map.fitBounds(bounds, { paddingTopLeft: [40, 80], paddingBottomRight: [40, 50] });
+    if (bounds.length > 1 && !current) map.fitBounds(bounds, { paddingTopLeft: [40, 80], paddingBottomRight: [40, 50], animate: false }); // 動きながら寄せると、再生のときの近さが上書きされてしまうので、すぐに切りかえる
     if (!list.length && !current) {
       showNote(isToday ? '「歩きはじめる」を押すと、歩いた道がここに線で残ります。' : 'この日の記録はありません。');
     } else {
@@ -981,6 +982,7 @@
   const POINT_STAY_MS = 60000;         // ポイントがもらえる時間
   const BLOOM_STEPS = [2, 4, 6];       // 芽・つぼみ・花になるポイント
   const CAT_POINTS = 10;               // 神社ポイントの合計がこれだけたまると、ネコがついてくる
+  const GOD_GAP_PX = 34;               // ついてくる神さまどうしの間（画面の上で）
   // 花に座る神さま（来る順）。花の色は、その神さまの色に合わせる
   const SHRINE_CHARS = [
     { img: 'biwa',      name: '琵琶をひく女神',     petal: '#f3c6de', center: '#b48ad0', leaf: '#7fae86' },
@@ -1213,6 +1215,7 @@
     else text = SHRINE_CHARS.length + 'の花が全部咲きました。神さまが勢ぞろい！';
     text += shrine.points >= CAT_POINTS ? '<br>🐈 ネコが いっしょに歩いてくれます（道の再生で見られます）'
       : shrine.flowers.length ? '<br>あと<b>' + (CAT_POINTS - shrine.points) + 'ポイント</b>で、だれかが ついてくるかも…' : '';
+    if (shrine.flowers.some((f) => f.bloomAt)) text += '<br>🚶 花が咲いた神さまは、道の再生で いっしょに歩いてくれます';
     document.getElementById('shrineText').innerHTML = text;
   }
 
@@ -1740,6 +1743,11 @@
     walker = L.marker(points[0], { icon: walkerIcon(), zIndexOffset: 1000 }).addTo(dayLayer);
     // 神社ポイントがたまっていたら、ネコが少しうしろをついてくる
     const cat = shrine.points >= CAT_POINTS ? L.marker(points[0], { icon: catIcon, zIndexOffset: 900 }).addTo(dayLayer) : null;
+    // 花が咲いた神さまは、みんな列になってついてくる（新しく来た神さまから順に）
+    const gods = shrine.flowers.filter((f) => f.bloomAt).sort((a, b) => b.bloomAt - a.bloomAt)
+      .map((f, i) => L.marker(points[0], { icon: godIcon(SHRINE_CHARS[f.char]), zIndexOffset: 890 - i }).addTo(dayLayer));
+    // 地図の上で 列が見えるように、神さまどうしは画面で約 GOD_GAP_PX はなす（地図の近さが変わっても同じ間に見える）
+    const metersPerPx = () => 156543 * Math.cos(points[0][0] * Math.PI / 180) / Math.pow(2, map.getZoom());
 
     // breaks に入っている番号の点では、前の点と線をつなげない
 
@@ -1790,7 +1798,8 @@
         faceWalker(a, b);
         walker.setLatLng(pos);
       }
-      if (cat) moveCat(Math.max(0, traveled - CAT_GAP_M));
+      if (cat) moveFollower(cat, Math.max(0, traveled - CAT_GAP_M));
+      if (gods.length) { const gap = GOD_GAP_PX * metersPerPx(); gods.forEach((g, i) => moveFollower(g, Math.max(0, traveled - (cat ? CAT_GAP_M : 0) - gap * (i + 1)))); }
       followWalker();
       if (drawn < total) {
         replayTimer = requestAnimationFrame(frame);
@@ -1799,15 +1808,15 @@
         setReplayUI(false);
       }
     }
-    // ネコを、道にそって d メートルの所に置く
-    function moveCat(d) {
+    // ついてくる仲間（ネコ・神さま）を、道にそって d メートルの所に置く
+    function moveFollower(who, d) {
       let i = 1;
       while (i < total - 1 && cum[i] < d) i++;
       const a = points[i - 1], b = points[i];
       const seg = cum[i] - cum[i - 1];
       const f = seg > 0 ? Math.min(1, Math.max(0, (d - cum[i - 1]) / seg)) : 1;
-      cat.setLatLng([a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]);
-      const el = cat.getElement && cat.getElement();
+      who.setLatLng([a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]);
+      const el = who.getElement && who.getElement();
       if (el && el.firstChild) el.firstChild.classList.toggle('west', b[1] < a[1]);
     }
     replayTimer = requestAnimationFrame(frame);
@@ -1822,6 +1831,8 @@
     document.querySelectorAll('#speedPick button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.speed === name)));
   }
   const CAT_GAP_M = 7; // ネコは人の 7m うしろ
+  const godIcon = (c) => L.divIcon({ className: '', iconSize: [36, 40], iconAnchor: [18, 38],
+    html: '<div class="cat-icon god-follow" style="width:36px;height:40px"><img src="chars/shrine/' + c.img + '.png" alt="' + c.name + '"></div>' });
   const catIcon = L.divIcon({ className: '', iconSize: [34, 28], iconAnchor: [17, 26],
     html: '<div class="cat-icon" style="width:34px;height:28px"><img src="chars/cat_sit.png" alt="ついてくるネコ"></div>' });
 
