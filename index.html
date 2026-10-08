@@ -166,6 +166,16 @@
   .pgod img { display: block; height: 46px; max-width: 64px; object-fit: contain; object-position: bottom;
     filter: drop-shadow(0 0 3px #fff) drop-shadow(0 1px 1px rgba(0,0,0,0.3)); animation: kami-sway 3.4s ease-in-out infinite alternate; transform-origin: 50% 100%; }
   .pgod.tree { font-size: 46px; line-height: 1; }
+  /* 絵を描いているところの動画 */
+  .paint-replay { display: none; position: absolute; left: 10px; bottom: 10px; z-index: 3; border: 0; border-radius: 999px; padding: 7px 12px;
+    background: rgba(255,255,255,0.9); color: #333; font: inherit; font-size: 0.82rem; font-weight: 700; box-shadow: 0 1px 4px rgba(0,0,0,0.25); }
+  .world.picture-mode .paint-replay { display: block; }
+  .paint-clip { position: absolute; inset: 0; z-index: 18; background: rgba(20, 24, 30, 0.82); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; }
+  .paint-clip[hidden] { display: none; }
+  .paint-clip { padding-top: 64px; }
+  .paint-clip video { height: min(62%, 420px); width: auto; max-width: 80%; aspect-ratio: 360 / 508; border-radius: 10px; border: 3px solid #fff; background: #000; box-shadow: 0 6px 20px rgba(0,0,0,0.5); }
+  .paint-clip p { margin: 0; color: #fff; font-weight: 700; font-size: 0.9rem; }
+  .paint-clip small { color: rgba(255,255,255,0.7); font-size: 0.75rem; }
   .world.picture-mode .ground, .world.picture-mode .plant, .world.picture-mode .scene { display: none; }
   .picture { position: absolute; left: 0; right: 0; top: 120px; bottom: 0; width: 100%; height: calc(100% - 120px); }
   .world.picture-mode .world-title { z-index: 2; }
@@ -418,6 +428,8 @@
       <div class="ground"></div>
       <canvas class="picture" id="picture" aria-hidden="true" hidden></canvas>
       <div class="god-layer" id="godLayer" aria-hidden="true"></div>
+      <button type="button" class="paint-replay" id="paintReplay">🎬 絵づくりを見る</button>
+      <div class="paint-clip" id="paintClip" hidden><video muted playsinline preload="none"></video><p id="paintClipLabel"></p><small>さわると とばせます</small></div>
       <div class="dq-flash" id="dqFlash" hidden></div>
       <div class="form-portrait" id="formPortrait" aria-hidden="true" hidden></div>
       <div class="dq-box" id="dqBox" role="status" aria-live="polite" hidden><p id="dqText"></p><span class="dq-next" aria-hidden="true">▼</span></div>
@@ -559,10 +571,11 @@
     { level: 10, emoji: '🐝', x: 60, y: 44, size: 24, move: 'fly' },
     { level: 10, emoji: '🌻', x: 30, y: 17, size: 30, move: 'sway' },
   ];
-  // Lv11〜20：神々の野（絵は 678×820）。集めた神さまを まっさらな野に置くと、そのまわりから絵に色がついていく
-  const PICTURE_SIZE = [678, 820];
-  // 神さまを置く場所（絵の中の x, y。神さまの足もと）。来た順に置く。何人でも野に散らばるように並べてある
-  const GOD_SPOTS = [[330, 560], [520, 250], [130, 300], [150, 720], [560, 700], [330, 140], [620, 470], [40, 520], [360, 790], [100, 130], [610, 130]];
+  // Lv11〜20：神々の野（絵は 760×1074。描いている動画の、できあがりの絵）。集めた神さまを まっさらな野に置くと、そのまわりから絵に色がついていく
+  const PICTURE_SIZE = [760, 1074];
+  // 神さまを置く場所（絵の中の 横・縦の割合。神さまの足もと）。来た順に置く。何人でも野に散らばるように並べてある
+  const GOD_SPOTS = [[0.49, 0.68], [0.77, 0.3], [0.19, 0.37], [0.22, 0.88], [0.83, 0.85], [0.49, 0.17], [0.91, 0.57], [0.06, 0.63], [0.53, 0.96], [0.15, 0.16], [0.9, 0.16]]
+    .map(([x, y]) => [x * PICTURE_SIZE[0], y * PICTURE_SIZE[1]]);
 
   // 送ってもらった絵のキャラクター（img: chars/ の画像、size: 高さpx）。Lv3 から少しずつ増える
   DECORATIONS.push(
@@ -1283,7 +1296,7 @@
 
   // 神々の野を描く。神さまのまわりは絵に色がつき、まだの所は まっさらな野
   const pictureImage = new Image();
-  pictureImage.src = 'chars/world20.jpg';
+  pictureImage.src = 'chars/world-fune.jpg';
   pictureImage.onload = () => { if (!document.getElementById('world').hidden) renderWorld(); };
   let pictureSteps = null; // 歩きおわった後に色が広がる演出の間は、ここに表示中の歩数が入る
   // 野にいる神さま（花が咲いた順）。まだひとりもいないときは、花の森の木から色がつく
@@ -1343,6 +1356,24 @@
     m.globalCompositeOperation = 'source-in';
     m.drawImage(pictureImage, dx, dy, iw * scale, ih * scale);
     ctx.drawImage(mask, 0, 0);
+  }
+  // 絵を描いているところの動画（chars/paint/11.mp4〜20.mp4。レベルごとに続きの場面）を、順番に流す。さわると とばせる
+  function playPaintClips(levels, done) {
+    const box = document.getElementById('paintClip');
+    const video = box.querySelector('video');
+    let i = 0;
+    const finish = () => { video.onended = video.onerror = box.onclick = null; video.pause(); box.hidden = true; if (done) done(); };
+    const next = () => {
+      if (i >= levels.length) return finish();
+      document.getElementById('paintClipLabel').textContent = '🖌 Lv' + levels[i] + ' の絵を描いているところ';
+      video.src = 'chars/paint/' + levels[i++] + '.mp4';
+      video.play().catch(next);
+    };
+    video.onended = next;
+    video.onerror = next;
+    box.onclick = finish;
+    box.hidden = false;
+    next();
   }
   // 歩きおわったとき、歩いた分だけ 色が広がっていく様子を見せる
   function animatePicture(from, to) {
@@ -1406,6 +1437,12 @@
   }
 
   // 地図と世界の切りかえ
+  // これまでのレベルの「絵を描いているところ」を、まとめて見る
+  document.getElementById('paintReplay').addEventListener('click', () => {
+    const levels = [];
+    for (let lv = 11; lv <= getStage(totalSteps()).level; lv++) levels.push(lv);
+    playPaintClips(levels);
+  });
   function showView(name) {
     const world = name === 'world';
     document.getElementById('world').hidden = !world;
@@ -1522,9 +1559,20 @@
       showView('world');
       const after = getStage(totalSteps());
       floatText('+' + walkedSteps.toLocaleString() + ' 歩', 'steps-pop', 62, 55);
-      if (before.level >= 11) animatePicture(totalSteps() - walkedSteps, totalSteps()); // 神々の野：色が広がる
+      if (before.level >= 11 && after.level === before.level) animatePicture(totalSteps() - walkedSteps, totalSteps()); // 神々の野：色が広がる
       if (after.level > before.level) {
-        if (before.level < 11 && after.level >= 11) {
+        if (before.level >= 11) {
+          // 神々の野でレベルが上がった：絵を描いているところを見せてから、色が広がる
+          const levels = [];
+          for (let lv = before.level + 1; lv <= after.level; lv++) levels.push(lv);
+          pictureSteps = totalSteps() - walkedSteps;
+          drawPicture(pictureSteps);
+          playPaintClips(levels, () => {
+            animatePicture(totalSteps() - walkedSteps, totalSteps());
+            playFanfare();
+            showMessages(['レベルが あがった！', 'Lv' + after.level + '「' + after.name + '」'], checkForm);
+          });
+        } else if (before.level < 11 && after.level >= 11) {
           enterNewWorld(after, checkForm);
         } else {
           const plant = document.getElementById('plant');
@@ -1681,7 +1729,7 @@
       setTimeout(() => renderWorld(), 450); // 真っ白になったところで切りかえる
       setTimeout(() => {
         flash.hidden = true;
-        showMessages(['Lv' + stage.level + '「' + stage.name + '」！', 'ぼうけんは まだまだ つづく！'], done);
+        playPaintClips([11], () => showMessages(['Lv' + stage.level + '「' + stage.name + '」！', 'ぼうけんは まだまだ つづく！'], done));
       }, 1300);
     });
   }
