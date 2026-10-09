@@ -487,7 +487,7 @@
       <p class="shrine-text" id="shrineText"></p>
     </div>
 
-    <p class="hint" id="hint">歩いている間は、このページを開いたまま画面をつけておくのがいちばん確実です。ほかのアプリを使って記録が止まっても、このページに戻れば続きから記録します。</p>
+    <p class="hint" id="hint">歩いている間は、このページを開いたまま画面をつけておくのがいちばん確実です。画面が消えたり、ほかのアプリを使ったりして記録が止まっても、このページに戻れば、止まっていた間に歩いた分もまっすぐの距離で数えて、続きから記録します。</p>
   </section>
 </div>
 
@@ -513,6 +513,9 @@
   const VEHICLE_AFTER_MS = 60000;  // ゆっくりの動きが1分続くまでは乗り物のまま（信号待ち・渋滞・駐車場）
   const ANCHOR_M = 10;           // 歩いた距離は、前に数えた点から10m以上はなれたら足す（GPSの細かいブレを数えない）
   const GAP_MS = 120000, GAP_M = 150; // 2分以上記録がとぎれて150m以上離れていたら、どう移動したかわからないので数えない
+  const GAP_WALK_SPEED = 2.0;    // ただし v: 3 からの散歩は、とぎれた間の速さが歩く速さ（秒速2m＝時速7km）までなら、まっすぐの距離で数える
+                                 // （画面が消えてGPSが止まっていた間も歩いていたはずなので。曲がり道の分は少なめになる）
+  const ROUGH_ACCURACY_M = 500;  // 精度がこれより悪い位置ばかりのときは「正確な位置情報」がオフになっていそう
   const SAVE_KEY = 'aruku-data';
 
   // ===== 歩いた分だけ育つ世界 =====
@@ -722,7 +725,7 @@
     return w;
   }
 
-  // これから歩く散歩（v: 2）：直近1分半の動きで乗り物に乗っていたかを見て、
+  // これから歩く散歩（v: 2 以降。v: 3 は記録がとぎれた間も歩く速さなら数える）：直近1分半の動きで乗り物に乗っていたかを見て、
   // 歩いている間にGPSが一瞬とんだ点は飛ばして、その前の点からの距離で数える
   function cleanWalk(w) {
     const pts = w.points;
@@ -730,7 +733,10 @@
     let inVehicle = false, slowSince = null, prevFast = false, k = 0;
     for (let i = 1; i < pts.length; i++) {
       const a = pts[i - 1], b = pts[i];
-      if (b[2] - a[2] >= GAP_MS && distanceM(a, b) >= GAP_M) { b[3] = b[3] || 2; prevFast = false; continue; }
+      if (b[2] - a[2] >= GAP_MS && distanceM(a, b) >= GAP_M) {
+        const walkable = w.v >= 3 && !b[3] && distanceM(a, b) / ((b[2] - a[2]) / 1000) <= GAP_WALK_SPEED;
+        if (!walkable) { b[3] = b[3] || 2; prevFast = false; continue; }
+      }
       while (k < i - 1 && b[2] - pts[k][2] > SPEED_WINDOW_MS) k++;
       const span = (b[2] - pts[k][2]) / 1000;
       const fast = span >= 60 && distanceM(pts[k], b) / span > MAX_WALK_SPEED;
@@ -1455,7 +1461,7 @@
       return;
     }
     viewDay = startOfDay(Date.now());
-    current = { id: Date.now(), start: Date.now(), end: null, points: [], distance: 0, v: 2 };
+    current = { id: Date.now(), start: Date.now(), end: null, points: [], distance: 0, v: 3 };
     showNote('位置を探しています…');
     beginRecording();
   }
@@ -1482,7 +1488,9 @@
     if (accuracy > MAX_ACCURACY_M) {
       // 道には使わないが、神社にいるかを見るのには使う
       if (accuracy <= SHRINE_MAX_ACCURACY_M) { lastFix = [latitude, longitude, accuracy]; checkShrine(latitude, longitude, accuracy); }
-      showNote('GPSの電波を探しています…（空が見える場所だと早くなります）');
+      // iPhone の「正確な位置情報」がオフだと、数km単位のおおよその位置しか来ない
+      if (accuracy > ROUGH_ACCURACY_M) showNote('おおよその位置しか取れていません。スマホの設定で、このブラウザの位置情報の「正確な位置情報」をオンにしてください。');
+      else showNote('GPSの電波を探しています…（空が見える場所だと早くなります）');
       return;
     }
     showNote('');
