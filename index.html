@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>おさんぽの国 ～あるくたびに、ちいさなしあわせ～</title>
+<title>おさんぽの国 ～あるくたびに ちいさなしあわせ～</title>
 <!-- LINE などにアドレスを貼ったときに出る紹介 -->
-<meta name="description" content="あるくたびに、ちいさなしあわせ。歩いた道が地図に赤い線で残り、女の子がてくてく道をたどって再生します。歩いた分だけ「成長の森」が育つ、登録なし・無料の散歩アプリです。">
+<meta name="description" content="あるくたびに ちいさなしあわせ。歩いた道が地図に赤い線で残り、女の子がてくてく道をたどって再生します。歩いた分だけ「成長の森」が育つ、登録なし・無料の散歩アプリです。">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://mario1367.github.io/-sodatsu/">
-<meta property="og:title" content="おさんぽの国 ～あるくたびに、ちいさなしあわせ～">
-<meta property="og:description" content="あるくたびに、ちいさなしあわせ。歩いた道が地図に赤い線で残り、女の子がてくてく道をたどって再生します。歩いた分だけ「成長の森」が育つ、登録なし・無料の散歩アプリです。">
+<meta property="og:title" content="おさんぽの国 ～あるくたびに ちいさなしあわせ～">
+<meta property="og:description" content="あるくたびに ちいさなしあわせ。歩いた道が地図に赤い線で残り、女の子がてくてく道をたどって再生します。歩いた分だけ「成長の森」が育つ、登録なし・無料の散歩アプリです。">
 <meta property="og:image" content="https://mario1367.github.io/-sodatsu/icon-512.png?v=2">
 <meta property="og:site_name" content="おさんぽの国">
 <meta name="twitter:card" content="summary">
@@ -582,7 +582,7 @@
 <section class="record-page" id="helpPage" aria-label="つかいかた" hidden>
   <div class="record-inner">
     <div class="record-top"><h2>つかいかた</h2><button class="round" id="helpClose" type="button" aria-label="とじる">✕</button></div>
-    <p class="record-lead">おさんぽの国 ～あるくたびに、ちいさなしあわせ～<br>歩いた道を地図に残し、歩いた分だけ世界が育っていくアプリです。</p>
+    <p class="record-lead">おさんぽの国 ～あるくたびに ちいさなしあわせ～<br>歩いた道を地図に残し、歩いた分だけ世界が育っていくアプリです。</p>
     <div class="help-list">
       <section class="help-card">
         <h3>📱 ホーム画面に追加すると便利</h3>
@@ -2589,7 +2589,7 @@
   // 動画を作るのに数秒かかり、その間に「押した」扱いが切れて送れなくなるので、
   // できあがったらボタンを「送る」に変えて、もう一度押してもらう
   function shareText(info) {
-    return (info.day === startOfDay(Date.now()) ? '今日は ' : recordDate(info.day) + 'は ') + info.steps.toLocaleString() + ' 歩 おさんぽしました🚶 わたしの世界は Lv' + info.stage.level + '「' + info.stage.name + '」\n無料・登録なしのお散歩アプリ「おさんぽの国 ～あるくたびに、ちいさなしあわせ～」はこちら👇 #おさんぽの国';
+    return (info.day === startOfDay(Date.now()) ? '今日は ' : recordDate(info.day) + 'は ') + info.steps.toLocaleString() + ' 歩 おさんぽしました🚶 わたしの世界は Lv' + info.stage.level + '「' + info.stage.name + '」\n無料・登録なしのお散歩アプリ「おさんぽの国 ～あるくたびに ちいさなしあわせ～」はこちら👇 #おさんぽの国';
   }
   async function sendShare(file, text) {
     try {
