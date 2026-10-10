@@ -103,6 +103,12 @@
     25% { transform: translateY(-2px) rotate(-2deg); }
     75% { transform: translateY(-2px) rotate(2deg); }
   }
+  /* すわる・ねころぶときは、その場でゆらゆら */
+  .walker-icon.rest img { animation: rest 1.6s ease-in-out infinite; }
+  @keyframes rest {
+    0%, 100% { transform: rotate(-2deg); }
+    50% { transform: rotate(2deg); }
+  }
   .walker-icon.west { transform: scaleX(-1); }   /* 西（左）に進むときは左を向く */
   /* 神・ガネーシャ・象人間は、右を向いたり左を向いたりしながら歩く */
   .walker-icon.turn img { animation: turn 1.1s ease-in-out infinite; }
@@ -113,7 +119,7 @@
     71%       { transform: scaleX(-1) translateY(-3px) rotate(-4deg); }
     100%      { transform: scaleX(1) translateY(0) rotate(0deg); }
   }
-  @media (prefers-reduced-motion: reduce) { .walker-icon img, .walker-icon.turn img { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .walker-icon img, .walker-icon.turn img, .walker-icon.rest img { animation: none; } }
   .replay-paused .walker-icon img, .replay-paused .cat-icon img { animation-play-state: paused; }
   .here-dot {
     width: 16px; height: 16px; border-radius: 50%;
@@ -1039,14 +1045,39 @@
     ganesha:{ src: 'chars/ganesha.png', w: 58, h: 62, alt: 'ガネーシャ' },
     hebi:   { src: 'chars/kaohebi.png', w: 54, h: 55, alt: '顔ヘビ' },
   };
-  // ふつうのすがたのときは、ときどき走ったりピースしたりする
-  const WALKER_POSES = ['chars/walker_run.png', 'chars/walker_peace.png'];
+  // ふつうのすがたのときは、ときどきポーズをとる（12秒ごとに2.5秒）。
+  // rest のポーズ（すわる・ねころぶ）のあいだは、再生でも動画でも その場で ひと休みする
+  const WALKER_POSES = [
+    { src: 'chars/walker_kick.png',    w: 52, h: 56 },
+    { src: 'chars/walker_sit.png',     w: 31, h: 44, rest: true },
+    { src: 'chars/walker_run.png',     w: 38, h: 55 },
+    { src: 'chars/walker_stretch.png', w: 38, h: 55 },
+    { src: 'chars/walker_lie.png',     w: 42, h: 32, rest: true },
+    { src: 'chars/walker_peace.png',   w: 37, h: 55 },
+    { src: 'chars/walker_bend.png',    w: 33, h: 49 },
+  ];
+  const POSE_EVERY = 12000, POSE_AT = 6000, POSE_MS = 2500;
+  let walkerRestUntil = 0; // すわる・ねころぶポーズのあいだは再生を止めておく
+  function setWalkerPose(pose) {
+    const el = document.getElementById('walkerEl'), img = el && el.querySelector('img');
+    if (!img) return;
+    const n = WALKER_LOOKS.normal;
+    img.src = pose ? pose.src : n.src;
+    // 絵の大きさがちがうので、足もとをそろえて置く
+    img.style.cssText = pose ? 'position:relative;width:' + pose.w + 'px;height:' + pose.h + 'px;left:' + (n.w - pose.w) / 2 + 'px;top:' + (n.h - pose.h) + 'px' : '';
+    el.classList.toggle('rest', !!(pose && pose.rest));
+  }
+  let lastPose = -1;
   setInterval(() => {
-    const img = document.querySelector('#walkerEl img');
-    if (!img || form !== 'normal') return;
-    img.src = WALKER_POSES[Math.floor(Math.random() * WALKER_POSES.length)];
-    setTimeout(() => { if (form === 'normal') img.src = WALKER_LOOKS.normal.src; }, 2500);
-  }, 12000);
+    if (!document.getElementById('walkerEl') || form !== 'normal' || replayPaused) return;
+    let k = Math.floor(Math.random() * (WALKER_POSES.length - 1));
+    if (k >= lastPose && lastPose >= 0) k++; // 同じポーズが続かないように
+    lastPose = k;
+    const pose = WALKER_POSES[k];
+    setWalkerPose(pose);
+    if (pose.rest) walkerRestUntil = performance.now() + POSE_MS;
+    setTimeout(() => { if (form === 'normal') setWalkerPose(null); }, POSE_MS);
+  }, POSE_EVERY);
   function walkerIcon() {
     const look = WALKER_LOOKS[form] || WALKER_LOOKS.normal;
     return L.divIcon({ className: '', iconSize: [look.w, look.h], iconAnchor: [look.w / 2, look.h - 2],
@@ -2003,6 +2034,7 @@
     map.setView(points[0], REPLAY_ZOOM, { animate: false });
     let line = L.polyline([points[0]], { color: pathColor(), weight: 6, lineCap: 'round' }).addTo(dayLayer);
     walker = L.marker(points[0], { icon: walkerIcon(), zIndexOffset: 1000 }).addTo(dayLayer);
+    walkerRestUntil = 0;
     // 夜に歩いた道では、黒い服の男が主人公と一緒に歩く
     const otoko = times && times.some(isNight) ? L.marker(points[0], { icon: otokoIcon, zIndexOffset: 995 }).addTo(dayLayer) : null;
     // 神社ポイントがたまっていたら、ネコが少しうしろをついてくる
@@ -2033,7 +2065,7 @@
 
     function frame(now) {
       // 一時停止中は、その場で待つ（地図もそのまま）
-      if (replayPaused) { last = now; replayTimer = requestAnimationFrame(frame); return; }
+      if (replayPaused || now < walkerRestUntil) { last = now; replayTimer = requestAnimationFrame(frame); return; }
       // 速さボタン（ゆっくり・ふつう・はやい）で、進み方を途中からでも変えられる
       traveledSoFar += (now - last) / durationMs * meters * REPLAY_SPEEDS[replaySpeed];
       last = now;
@@ -2417,7 +2449,7 @@
     const [walkerImg, otokoImg, catImg, poseImgs, ...godImgs] = await Promise.all([loadImg(look.src),
       times.some(isNight) ? loadImg(OTOKO.src) : null,
       shrine.points >= CAT_POINTS ? loadImg('chars/cat_sit.png') : null,
-      turns ? [] : Promise.all(WALKER_POSES.map(loadImg)),
+      turns ? [] : Promise.all(WALKER_POSES.map((p) => loadImg(p.src))),
       ...godsList.map((f) => loadImg('chars/shrine/' + SHRINE_CHARS[f.char].img + '.png'))]);
     // 世界ピクセルは大きすぎて線が描けないことがあるので、最初の点からの位置にする
     const O = worldPx(pts[0], Z);
@@ -2437,8 +2469,17 @@
       if (m) { g.translate(0, 2 + m.y); g.rotate(m.rot); g.scale(m.sx, 1); g.translate(0, -2); }
       g.drawImage(im, -w / 2, -h + 2, w, h); g.restore();
     };
+    // ポーズの順番は時刻で決める。すわる・ねころぶあいだは進まない
+    const poseOf = (t) => turns || t % POSE_EVERY < POSE_AT || t % POSE_EVERY >= POSE_AT + POSE_MS ? -1 : Math.floor(t / POSE_EVERY) % WALKER_POSES.length;
+    const moveT = (t) => {
+      let m = t;
+      for (let c = 0; c * POSE_EVERY + POSE_AT < t; c++)
+        if (!turns && WALKER_POSES[c % WALKER_POSES.length].rest) m -= Math.min(POSE_MS, t - c * POSE_EVERY - POSE_AT);
+      return m;
+    };
+    const moveMs = moveT(ms) || 1;
     const draw = (g, t) => {
-      const d = startM + Math.min(clipM, t / ms * clipM);
+      const d = startM + Math.min(clipM, moveT(t) / moveMs * clipM);
       const here = posAt(d), cw = worldPx(here.ll, Z), c = [cw[0] - O[0], cw[1] - O[1]];
       g.setTransform(1, 0, 0, 1, 0, 0);
       g.fillStyle = '#eef0e9'; g.fillRect(0, 0, W, H);
@@ -2473,10 +2514,12 @@
         g.save(); g.shadowColor = 'rgba(0,0,0,0.3)'; g.shadowBlur = 3; g.shadowOffsetY = 3; put(g, otokoImg, p.ll, OTOKO.w, OTOKO.h, p.west, stepAt(t + 140, 560, 2, 2)); g.restore();
       }
       if (catImg && d > CAT_GAP_M) put(g, catImg, posAt(d - CAT_GAP_M).ll, 34, 28, false, stepAt(t, 420, 2, 2));
-      // ふつうのすがたは、ときどき走ったりピースしたりする（12秒ごとに2.5秒）
-      const pose = !turns && t % 12000 >= 6000 && t % 12000 < 8500 ? poseImgs[Math.floor(t / 12000) % poseImgs.length] : null;
+      // ふつうのすがたは、ときどきポーズをとる（12秒ごとに2.5秒）
+      const k = poseOf(t), pose = k >= 0 ? WALKER_POSES[k] : null;
+      const sway = { y: 0, rot: 2 * Math.sin(2 * Math.PI * t / 1600) * Math.PI / 180, sx: 1 };
       g.save(); g.shadowColor = 'rgba(0,0,0,0.3)'; g.shadowBlur = 3; g.shadowOffsetY = 3;
-      put(g, pose || walkerImg, here.ll, look.w, look.h, here.west, turns ? turnAt(t) : stepAt(t, 500, 2, 2));
+      put(g, pose && poseImgs[k] || walkerImg, here.ll, pose ? pose.w : look.w, pose ? pose.h : look.h, here.west,
+        turns ? turnAt(t) : pose && pose.rest ? sway : stepAt(t, 500, 2, 2));
       g.restore();
       g.setTransform(1, 0, 0, 1, 0, 0);
       // 地図のクレジット
