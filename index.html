@@ -166,13 +166,18 @@
   /* Lv11〜：大きな絵（見えていない所はうっすら） */
   .world.picture-mode { background: linear-gradient(#fdfdf8, #f1f4e6); } /* まっさらな野 */
   .god-layer { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
-  .pgod { position: absolute; translate: -50% -100%; transition: opacity 1.2s ease; animation: pgod-bob 4.6s ease-in-out infinite alternate; }
+  .pgod { position: absolute; translate: -50% -100%; transition: opacity 1.2s ease; }
   .pgod.tree { left: 50%; top: 72%; }
   .pgod.newgod img { height: 40px; }
-  @keyframes pgod-bob { from { translate: -50% -100%; } to { translate: -50% -108%; } }
-  .pgod::after { content: ''; position: absolute; left: 50%; bottom: -3px; translate: -50% 0; width: 34px; height: 8px; border-radius: 50%; background: rgba(60, 50, 20, 0.18); z-index: -1; }
+  /* 神さまはふわふわ浮かぶ：体だけ上下し、地面の影はその場で小さく・薄くなる。3通りにずらして全員がそろわないように */
+  @keyframes pgod-float { from { translate: 0 -3px; } to { translate: 0 -20px; } }
+  @keyframes pgod-shadow { from { scale: 1; opacity: 1; } to { scale: 0.5; opacity: 0.45; } }
+  .pgod::after { content: ''; position: absolute; left: 50%; bottom: -6px; translate: -50% 0; width: 34px; height: 8px; border-radius: 50%; background: rgba(60, 50, 20, 0.18); z-index: -1;
+    animation: pgod-shadow 2.6s ease-in-out infinite alternate; }
   .pgod img { display: block; height: 46px; max-width: 64px; object-fit: contain; object-position: bottom;
-    filter: drop-shadow(0 0 3px #fff) drop-shadow(0 1px 1px rgba(0,0,0,0.3)); animation: kami-sway 3.4s ease-in-out infinite alternate; transform-origin: 50% 100%; }
+    filter: drop-shadow(0 0 3px #fff) drop-shadow(0 1px 1px rgba(0,0,0,0.3)); animation: pgod-float 2.6s ease-in-out infinite alternate, kami-sway 3.4s ease-in-out infinite alternate; transform-origin: 50% 100%; }
+  .pgod:nth-child(3n+2) img, .pgod:nth-child(3n+2)::after { animation-delay: -0.9s; }
+  .pgod:nth-child(3n) img, .pgod:nth-child(3n)::after { animation-delay: -1.8s; }
   .pgod.tree { font-size: 46px; line-height: 1; }
   /* 絵を描いているところの動画 */
   /* 世界が変わるとき：ゆっくり切りかえ、少しゆれて光る */
@@ -182,10 +187,12 @@
     0% { scale: 1; filter: none; } 30% { scale: 0.97; filter: brightness(1.15) saturate(0.8); }
     65% { scale: 1.03; filter: brightness(1.25); } 100% { scale: 1; filter: none; } }
   .world.picture-mode .ground, .world.picture-mode .plant, .world.picture-mode .scene { display: none; }
-  .picture { position: absolute; left: 8px; right: 8px; top: 118px; bottom: 8px; display: grid; place-items: center; }
+  .picture { position: absolute; left: 8px; right: 8px; top: 118px; bottom: 8px; display: grid; place-items: center; container-type: size; }
   .picture-box { position: relative; height: 100%; width: auto; max-width: 100%; aspect-ratio: 680 / 962;
     border-radius: 8px; overflow: hidden; background: #fcfdf6; box-shadow: 0 2px 10px rgba(0,0,0,0.12);
     animation: pic-breathe 26s ease-in-out infinite alternate; }
+  /* 縦長の画面でも枠を絵と同じ形にする（上下に白い余白ができて、神さまが白紙の上に浮かないように） */
+  @supports (width: 1cqh) { .picture-box { width: min(100cqw, 100cqh * 680 / 962); height: auto; } }
   .pic-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; transition: opacity 1.2s ease; }
   @keyframes pic-breathe { from { scale: 1; translate: 0 0; } to { scale: 1.05; translate: -1% 1%; } }
   .world.picture-mode .world-title { z-index: 2; }
@@ -365,7 +372,7 @@
   .kami img { position: absolute; left: 50%; bottom: 90px; translate: -50% 0; height: 116px; max-width: 170px; object-fit: contain; object-position: bottom;
     filter: drop-shadow(0 1px 1px rgba(0,0,0,0.3)); animation: kami-sway 3.4s ease-in-out infinite alternate; transform-origin: 50% 100%; }
   .world.picture-mode .kami-layer { display: none; } /* Lv11〜の絵の場面には出さない */
-  @media (prefers-reduced-motion: reduce) { .kami img, .pgod img, .pgod, .picture-box { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .kami img, .pgod img, .pgod::after, .picture-box { animation: none; } }
   /* ===== 神社の花畑 ===== */
   .shrine { border: 2px solid var(--track); border-radius: 18px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
   .shrine-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
