@@ -363,6 +363,22 @@
   .cat-icon.west img { transform: scaleX(-1); }
   .god-follow img { object-fit: contain; object-position: bottom; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.35)); }
   @media (prefers-reduced-motion: reduce) { .shrine-slot img, .cat-icon img { animation: none; } }
+  /* ===== つかいかた ===== */
+  .help-open {
+    position: absolute; z-index: 710; top: 14px; right: 12px;
+    width: 38px; height: 38px; border-radius: 50%; border: none;
+    background: var(--card); color: var(--ink); font-family: var(--font); font-weight: 700; font-size: 1.15rem;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15); cursor: pointer;
+  }
+  .help-list { display: flex; flex-direction: column; gap: 12px; }
+  .help-card { background: var(--card); border-radius: 16px; padding: 12px 14px; }
+  .help-card h3 { margin: 0 0 6px; font-size: 1.05rem; }
+  .help-card p { margin: 6px 0 0; font-size: 0.92rem; line-height: 1.7; }
+  .help-card ol { margin: 6px 0 0; padding-left: 1.4em; font-size: 0.92rem; line-height: 1.7; }
+  .help-card li + li { margin-top: 2px; }
+  .help-card .help-small { font-size: 0.84rem; color: var(--ink-soft); }
+  .help-card b { color: var(--go); }
+  .help-card.important { border: 2px solid var(--stop); }
   /* ===== 成長の記録 ===== */
   .record-page {
     position: fixed; inset: 0; z-index: 2000; background: var(--page); overflow-y: auto;
@@ -430,6 +446,7 @@
       <button type="button" id="showMap" aria-pressed="true">🗺 地図</button>
       <button type="button" id="showWorld" aria-pressed="false">🌳 成長の森</button>
     </div>
+    <button class="help-open" id="helpButton" type="button" aria-label="つかいかた">？</button>
     <section class="world" id="world" aria-label="成長の森" hidden>
       <p class="world-title"><strong id="stageName">何もない土地</strong><span id="stageInfo"></span></p>
       <div class="scene" id="scene" aria-hidden="true"></div>
@@ -487,9 +504,76 @@
       <p class="shrine-text" id="shrineText"></p>
     </div>
 
+    <p class="hint"><button class="text-button" id="helpLink" type="button">❓ つかいかたを見る</button></p>
     <p class="hint" id="hint">歩いている間は、このページを開いたまま画面をつけておくのがいちばん確実です。画面が消えたり、ほかのアプリを使ったりして記録が止まっても、このページに戻れば、止まっていた間に歩いた分もまっすぐの距離で数えて、続きから記録します。</p>
   </section>
 </div>
+
+<section class="record-page" id="helpPage" aria-label="つかいかた" hidden>
+  <div class="record-inner">
+    <div class="record-top"><h2>❓ つかいかた</h2><button class="round" id="helpClose" type="button" aria-label="とじる">✕</button></div>
+    <p class="record-lead">おさんぽてくてくは、歩いた道を地図に残し、歩いた分だけ世界が育っていくアプリです。</p>
+    <div class="help-list">
+      <section class="help-card important">
+        <h3>📍 さいしょに：位置情報の設定（iPhone）</h3>
+        <p>地図に今いる場所が出ないときや、ちがう場所（東京など）が出るときは、ここを見てください。</p>
+        <ol>
+          <li>「設定」アプリを開く</li>
+          <li>「プライバシーとセキュリティ」→「位置情報サービス」を<b>オン</b></li>
+          <li>同じ画面を下へ進み「Safariのサイト」を開く</li>
+          <li>「<b>使用中のみ</b>」をえらぶ</li>
+          <li>「<b>正確な位置情報</b>」を<b>オン</b>にする</li>
+          <li>このページを開き直し、位置情報をたずねられたら「許可」を押す</li>
+        </ol>
+        <p class="help-small">Android のときは、ブラウザの設定でこのページの位置情報を「許可」にしてください。</p>
+      </section>
+      <section class="help-card">
+        <h3>📱 ホーム画面に追加すると便利</h3>
+        <ol>
+          <li>Safari でこのページを開く</li>
+          <li>下の 共有ボタン（□に↑のマーク）を押す</li>
+          <li>「ホーム画面に追加」を押す</li>
+        </ol>
+        <p class="help-small">ホーム画面のアイコンから、アプリのようにすぐ開けます。</p>
+      </section>
+      <section class="help-card">
+        <h3>🚶 歩きかた</h3>
+        <ol>
+          <li>「<b>歩きはじめる</b>」を押して出発</li>
+          <li>歩いた道が赤い線で地図に残ります</li>
+          <li>帰ってきたら「<b>歩きおわる</b>」を押す</li>
+        </ol>
+        <p>歩いている間は、このページを開いたまま画面をつけておくのがいちばん確実です。途中で画面が消えても、ページに戻れば続きから記録します。</p>
+        <p class="help-small">電車やバスなど乗り物での移動は、歩数に入りにくくなっています。歩数は歩いた距離から出した「めやす」です。</p>
+      </section>
+      <section class="help-card">
+        <h3>📅 前の日を見る・道を再生する</h3>
+        <p>日付の横の「‹」「›」で、前の日の記録を見られます。「▶ この日の道を再生」を押すと、歩いた道をもう一度たどれます。</p>
+      </section>
+      <section class="help-card">
+        <h3>🌳 成長の森</h3>
+        <p>上の「🌳 成長の森」を押すと、あなたの世界が見られます。これまでに歩いた歩数の合計で、豆 → 芽 → 木 → 森 と育っていきます。</p>
+        <p>「📖 成長の記録」では、世界がいつどう変わったかを見返せます。</p>
+        <p class="help-small">しばらく歩かないでいると、ちょっと困ったことが起こるかも…？</p>
+      </section>
+      <section class="help-card">
+        <h3>⛩ 神社と種</h3>
+        <ol>
+          <li>散歩の途中で神社に立ち寄ります（近づくと「あと約○m」と出ます）</li>
+          <li>神社に<b>3分</b>いると、<b>種</b>が1つもらえます</li>
+          <li>そのあと神社に<b>1分</b>いるたびに、<b>神社ポイント</b>が1つ（同じ神社は1日1回）</li>
+          <li>ポイントで種が 芽 → つぼみ → 花 と育ち、花が咲くと<b>神さま</b>がやって来ます</li>
+        </ol>
+        <p class="help-small">地図に載っている神社だけが対象です。神社ポイントがたまると、ネコがついてくることも。</p>
+      </section>
+      <section class="help-card">
+        <h3>✨ レベル11から：神々の野</h3>
+        <p>森が育ちきると、レベル11で「神々の野」がはじまります。集めた神さまたちが野原に集まり、歩くたびに世界の絵が少しずつ変わっていきます。</p>
+        <p>新しい神さまたちも出会いを待っています。どんな世界になるかは、歩いてのおたのしみです。</p>
+      </section>
+    </div>
+  </div>
+</section>
 
 <section class="record-page" id="recordPage" aria-label="成長の記録" hidden>
   <div class="record-inner">
@@ -1922,6 +2006,11 @@
   document.getElementById('walkList').addEventListener('click', onWalkPick);
   document.getElementById('recordButton').addEventListener('click', openRecord);
   document.getElementById('recordClose').addEventListener('click', () => { document.getElementById('recordPage').hidden = true; });
+  // つかいかた
+  const openHelp = () => { const pg = document.getElementById('helpPage'); pg.hidden = false; pg.scrollTop = 0; };
+  document.getElementById('helpButton').addEventListener('click', openHelp);
+  document.getElementById('helpLink').addEventListener('click', openHelp);
+  document.getElementById('helpClose').addEventListener('click', () => { document.getElementById('helpPage').hidden = true; });
   document.getElementById('walkList').addEventListener('keydown', onWalkPick);
   document.getElementById('prevDay').addEventListener('click', () => {
     stopReplay(); closeWalkList(); viewDay -= 86400000; viewDay = startOfDay(viewDay + 3600000); renderDay();
