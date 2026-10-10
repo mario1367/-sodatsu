@@ -1045,7 +1045,7 @@
     ganesha:{ src: 'chars/ganesha.png', w: 58, h: 62, alt: 'ガネーシャ' },
     hebi:   { src: 'chars/kaohebi.png', w: 54, h: 55, alt: '顔ヘビ' },
   };
-  // ふつうのすがたのときは、ときどきポーズをとる（12秒ごとに2.5秒）。
+  // ふつうのすがたのときは、次々ポーズをとる（3.5秒ごとに2秒）。
   // rest のポーズ（すわる・ねころぶ）のあいだは、再生でも動画でも その場で ひと休みする
   const WALKER_POSES = [
     { src: 'chars/walker_kick.png',    w: 52, h: 56 },
@@ -1056,7 +1056,7 @@
     { src: 'chars/walker_peace.png',   w: 37, h: 55 },
     { src: 'chars/walker_bend.png',    w: 33, h: 49 },
   ];
-  const POSE_EVERY = 12000, POSE_AT = 6000, POSE_MS = 2500;
+  const POSE_EVERY = 3500, POSE_AT = 1500, POSE_MS = 2000;
   let walkerRestUntil = 0; // すわる・ねころぶポーズのあいだは再生を止めておく
   function setWalkerPose(pose) {
     const el = document.getElementById('walkerEl'), img = el && el.querySelector('img');
@@ -2514,7 +2514,7 @@
         g.save(); g.shadowColor = 'rgba(0,0,0,0.3)'; g.shadowBlur = 3; g.shadowOffsetY = 3; put(g, otokoImg, p.ll, OTOKO.w, OTOKO.h, p.west, stepAt(t + 140, 560, 2, 2)); g.restore();
       }
       if (catImg && d > CAT_GAP_M) put(g, catImg, posAt(d - CAT_GAP_M).ll, 34, 28, false, stepAt(t, 420, 2, 2));
-      // ふつうのすがたは、ときどきポーズをとる（12秒ごとに2.5秒）
+      // ふつうのすがたは、次々ポーズをとる（3.5秒ごとに2秒）
       const k = poseOf(t), pose = k >= 0 ? WALKER_POSES[k] : null;
       const sway = { y: 0, rot: 2 * Math.sin(2 * Math.PI * t / 1600) * Math.PI / 180, sx: 1 };
       g.save(); g.shadowColor = 'rgba(0,0,0,0.3)'; g.shadowBlur = 3; g.shadowOffsetY = 3;
