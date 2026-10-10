@@ -21,6 +21,11 @@
 <meta name="apple-mobile-web-app-title" content="おさんぽてくてく">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<script>
+  // Android の「アプリをインストール」の合図は、ページを読んでいる途中で来ることがあるので先に受けとっておく
+  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); window.__installPrompt = e; });
+  if ('serviceWorker' in navigator && !/[?&]demo/.test(location.search)) navigator.serviceWorker.register('./sw.js').catch(() => {});
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700&family=DotGothic16&display=swap">
 <!-- 地図ライブラリ（Leaflet） -->
@@ -529,6 +534,7 @@
     <div class="sub-row" id="addHomeRow" hidden>
       <button class="sub-button add-home" id="addHomeButton" type="button">📱 ホーム画面に追加する</button>
     </div>
+    <p class="hint" id="addHomeNote" hidden>「アプリをインストール」と出たら「インストール」を押してください。ホーム画面にアイコンが出ます（お店からアプリを入れるわけではありません）。</p>
 
     <div class="keep" id="keep">
       <div class="keep-head">💾 記録のバックアップ</div>
@@ -558,6 +564,7 @@
           <li>共有ボタン（□に↑のマーク）を押す（見つからないときは「…」→「共有」）</li>
           <li>「ホーム画面に追加」を押す</li>
         </ol>
+        <p class="help-small">Android では、パネルの「📱 ホーム画面に追加する」を押して、「アプリをインストール」と出たら「インストール」を押します。これでホーム画面にアイコンが出ます。</p>
         <p class="help-small">ホーム画面のアイコンから、アプリのようにすぐ開けます。iPhone では、ホーム画面に追加しないまま しばらく開かないと、記録が消えてしまうことがあります。</p>
         <p class="help-small">iPhone では、Safari とホーム画面のアプリで記録が別々になります。Safari で歩いた記録があるときは、先に「💾 ファイルに保存」をしてから追加し、ホーム画面のアプリで「ファイルから戻す」を押してください。</p>
       </section>
@@ -639,10 +646,12 @@
           <li>右上の「<b>追加</b>」を押す</li>
         </ol>
         <ol class="add-steps" id="addStepsAndroid" hidden>
-          <li>画面の右上の「<b>︙</b>」を押す</li>
+          <li id="addAndroidMenu">画面の右上の「<b>︙</b>」（点が縦に3つ）を押す</li>
           <li>「<b>ホーム画面に追加</b>」または「<b>アプリをインストール</b>」を押す</li>
           <li>「<b>追加</b>」「<b>インストール</b>」を押す</li>
         </ol>
+        <p id="addInApp" hidden><b>いまは LINE などのアプリの中で開いています。</b>ここからはホーム画面に追加できないので、右上（または右下）のメニューから「<b>ブラウザで開く</b>」「<b>Chrome で開く</b>」を押して、開いたページでもう一度「📱 ホーム画面に追加する」を押してください。</p>
+        <p class="help-small" id="addRetry" hidden>Chrome では、ページを少し使ってからもう一度ボタンを押すと、すぐに追加の画面が出ることがあります。</p>
         <p class="help-small">ホーム画面の「おさんぽてくてく」のアイコンから、アプリのようにすぐ開けます。</p>
       </section>
     </div>
@@ -2181,11 +2190,15 @@
   const IS_IPHONE = /iPhone|iPad|iPod/.test(UA) || (/Macintosh/.test(UA) && navigator.maxTouchPoints > 1);
   const IS_PHONE = IS_IPHONE || /Android/.test(UA);
   const isStandalone = () => navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
-  let installPrompt = null;
+  let installPrompt = window.__installPrompt || null;
   window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installPrompt = e; updateAddHome(); });
-  window.addEventListener('appinstalled', () => { installPrompt = null; document.getElementById('addHomeRow').hidden = true; document.getElementById('homeTip').hidden = true; });
+  // LINE などのアプリの中で開いたページは、ホーム画面に追加できない
+  const IN_APP = /Line\/|FBAN|FBAV|Instagram|KAKAOTALK|; wv\)/.test(UA);
+  const SAMSUNG = /SamsungBrowser/.test(UA);
+  window.addEventListener('appinstalled', () => { installPrompt = null; document.getElementById('addHomeRow').hidden = true; document.getElementById('addHomeNote').hidden = true; document.getElementById('homeTip').hidden = true; });
   function updateAddHome() {
     document.getElementById('addHomeRow').hidden = DEMO || isStandalone() || !(IS_PHONE || installPrompt);
+    document.getElementById('addHomeNote').hidden = document.getElementById('addHomeRow').hidden || IS_IPHONE || IN_APP;
   }
   async function addToHome() {
     if (installPrompt) {
@@ -2194,9 +2207,13 @@
       return;
     }
     document.getElementById('addSaveFirst').hidden = !(IS_IPHONE && walks.length);
-    document.getElementById('addStepsIphone').hidden = !IS_IPHONE;
-    document.getElementById('addStepsAndroid').hidden = IS_IPHONE;
-    document.getElementById('addArrow').textContent = IS_IPHONE ? '👇' : '';
+    document.getElementById('addStepsIphone').hidden = !IS_IPHONE || IN_APP;
+    document.getElementById('addStepsAndroid').hidden = IS_IPHONE || IN_APP;
+    document.getElementById('addInApp').hidden = !IN_APP;
+    document.getElementById('addRetry').hidden = IS_IPHONE || IN_APP || SAMSUNG;
+    document.getElementById('addAndroidMenu').innerHTML = SAMSUNG
+      ? '画面の右下の「<b>≡</b>」（線が3本）を押す' : '画面の右上の「<b>︙</b>」（点が縦に3つ）を押す';
+    document.getElementById('addArrow').textContent = IS_IPHONE && !IN_APP ? '👇' : '';
     const pg = document.getElementById('addPage'); pg.hidden = false; pg.scrollTop = 0;
   }
   document.getElementById('addHomeButton').addEventListener('click', addToHome);
