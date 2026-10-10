@@ -2352,7 +2352,6 @@
     const local = (ll) => { const q = worldPx(ll, Z); return [q[0] - O[0], q[1] - O[1]]; };
     const P = pts.map(local);
     const mPerPx = 156543 * Math.cos(pts[0][0] * Math.PI / 180) / n;
-    const font = '700 46px "Zen Maru Gothic", "Hiragino Maru Gothic ProN", sans-serif';
     const put = (g, im, ll, w, h, flip) => {
       if (!im) return;
       const q = local(ll);
@@ -2389,10 +2388,8 @@
       if (catImg && d > CAT_GAP_M) put(g, catImg, posAt(d - CAT_GAP_M).ll, 34, 28, false);
       put(g, walkerImg, here.ll, look.w, look.h, here.west);
       g.setTransform(1, 0, 0, 1, 0, 0);
-      // 歩数と地図のクレジット
-      g.fillStyle = 'rgba(255,255,255,0.9)'; g.beginPath(); g.roundRect(W / 2 - 170, 24, 340, 76, 38); g.fill();
-      g.fillStyle = '#3f8f4f'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = font;
-      g.fillText(Math.round(info.steps * d / meters).toLocaleString() + ' 歩', W / 2, 63);
+      // 地図のクレジット
+      g.textBaseline = 'middle';
       if (img.size) {
         g.fillStyle = 'rgba(255,255,255,0.8)'; g.fillRect(W - 150, H - 22, 150, 22);
         g.fillStyle = '#555'; g.font = '13px sans-serif'; g.textAlign = 'right'; g.fillText('© OpenStreetMap', W - 8, H - 11);
