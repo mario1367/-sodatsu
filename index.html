@@ -2068,6 +2068,12 @@
     if (walksOfDay(viewDay).length === 1) { replayDay(); return; }
     listEl.hidden = !listEl.hidden;
     document.getElementById('replayButton').setAttribute('aria-expanded', String(!listEl.hidden));
+    // 一覧（時間と歩数）が画面の下にかくれないよう、見えるところまで自動で下げる。再生ボタンは画面に残す
+    if (!listEl.hidden) {
+      const btnTop = document.getElementById('replayButton').getBoundingClientRect().top;
+      const over = listEl.getBoundingClientRect().bottom - window.innerHeight + 16;
+      if (over > 0) window.scrollBy({ top: Math.min(over, btnTop - 8), behavior: 'smooth' });
+    }
   });
   document.getElementById('mapStop').addEventListener('click', () => stopReplay());
   document.getElementById('speedPick').addEventListener('click', (e) => { const b = e.target.closest('button[data-speed]'); if (b) setReplaySpeed(b.dataset.speed); });
