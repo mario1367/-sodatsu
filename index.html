@@ -326,7 +326,8 @@
   .speed-pick button[aria-pressed="true"] { background: var(--go); color: var(--on-button); }
   /* 成長の森を見ている間は、地図の再生ボタンを出さない */
   .map-wrap.world-on .map-stop, .map-wrap.world-on .speed-pick { display: none; }
-  .map-share { bottom: 136px; background: var(--go); color: var(--on-button); }
+  .map-share { bottom: 86px; background: var(--go); color: var(--on-button); }
+  #mapStop:has(~ .map-share:not([hidden])) { bottom: 136px; } /* 再生をとめる は みんなに見せる の上 */
   .map-share:disabled { opacity: 0.85; cursor: default; }
   .walks li.all span:first-child { font-weight: 700; }
   .demo-bar { margin: 0; padding: 8px 12px; border-radius: 12px; background: #fff3c4; color: #5a4500; font-size: 0.85rem; font-weight: 700; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
