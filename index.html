@@ -396,6 +396,13 @@
   .shrine-pin { font-size: 20px; line-height: 26px; width: 26px; height: 26px; text-align: center; background: #fff; border: 2px solid #b3262d; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
   .cat-icon img { width: 100%; height: 100%; display: block; transform-origin: 50% 100%; animation: step 0.42s ease-in-out infinite; }
   .cat-icon.west img { transform: scaleX(-1); }
+  /* 夜に一緒に歩く黒い服の男：主人公のすぐうしろ（進む向きと反対がわ）にならぶ */
+  .otoko-icon { transform: translateX(-22px); transition: transform 0.2s, opacity 0.8s; }
+  .otoko-icon.west { transform: translateX(22px) scaleX(-1); }
+  .otoko-icon.away { opacity: 0; }
+  .otoko-icon img { width: 100%; height: 100%; display: block; transform-origin: 50% 100%; animation: step 0.56s ease-in-out infinite; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3)); }
+  .replay-paused .otoko-icon img { animation-play-state: paused; }
+  @media (prefers-reduced-motion: reduce) { .otoko-icon img { animation: none; } }
   .god-follow img { object-fit: contain; object-position: bottom; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.35)); }
   @media (prefers-reduced-motion: reduce) { .shrine-slot img, .cat-icon img { animation: none; } }
   /* ===== つかいかた ===== */
@@ -1978,6 +1985,7 @@
     renderDay();
     const kept = list.map((w) => w.points.filter((p) => p[3] !== 3)); // GPSが一瞬とんだ点は通らない
     const points = kept.flatMap((pts) => pts.map((p) => [p[0], p[1]]));
+    const times = kept.flatMap((pts) => pts.map((p) => p[2])); // 歩いた時刻（夜かどうかを見る）
     // 線を切る場所：散歩と散歩の間、乗り物で移動した点
     const breaks = new Set();
     let index = 0;
@@ -1985,16 +1993,18 @@
       pts.forEach((p, i) => { if (i === 0 || p[3]) breaks.add(index + i); });
       index += pts.length;
     }
-    playRoute(points, breaks);
+    playRoute(points, breaks, times);
   }
 
   // points を順番にたどって、線を伸ばしながら人を動かす
-  function playRoute(points, breaks) {
+  function playRoute(points, breaks, times) {
     dayLayer.eachLayer((layer) => layer.setStyle && layer.setStyle({ color: oldColor(), opacity: 0.35 }));
     // 近くに寄って、人を追いかけながら再生する
     map.setView(points[0], REPLAY_ZOOM, { animate: false });
     let line = L.polyline([points[0]], { color: pathColor(), weight: 6, lineCap: 'round' }).addTo(dayLayer);
     walker = L.marker(points[0], { icon: walkerIcon(), zIndexOffset: 1000 }).addTo(dayLayer);
+    // 夜に歩いた道では、黒い服の男が主人公と一緒に歩く
+    const otoko = times && times.some(isNight) ? L.marker(points[0], { icon: otokoIcon, zIndexOffset: 995 }).addTo(dayLayer) : null;
     // 神社ポイントがたまっていたら、ネコが少しうしろをついてくる
     const cat = shrine.points >= CAT_POINTS ? L.marker(points[0], { icon: catIcon, zIndexOffset: 900 }).addTo(dayLayer) : null;
     // 花が咲いた神さまは、みんな列になってついてくる（新しく来た神さまから順に）
@@ -2055,6 +2065,12 @@
         faceWalker(a, b);
         walker.setLatLng(pos);
       }
+      if (otoko) {
+        otoko.setLatLng(walker.getLatLng());
+        const el = otoko.getElement() && otoko.getElement().firstChild;
+        const we = document.getElementById('walkerEl');
+        if (el) { el.classList.toggle('away', !isNight(times[Math.max(0, drawn - 1)])); el.classList.toggle('west', !!we && we.classList.contains('west')); }
+      }
       if (cat) moveFollower(cat, Math.max(0, traveled - CAT_GAP_M));
       if (gods.length) { const gap = GOD_GAP_PX * metersPerPx(); gods.forEach((g, i) => moveFollower(g, Math.max(0, traveled - (cat ? CAT_GAP_M : 0) - gap * (i + 1)))); }
       followWalker();
@@ -2091,6 +2107,12 @@
     document.querySelectorAll('#speedPick button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.speed === name)));
   }
   const CAT_GAP_M = 7; // ネコは人の 7m うしろ
+  // 夜（その場所の時計で 18時〜朝5時）に歩いたところでは、黒い服の男が一緒に歩く
+  const NIGHT_FROM = 18, NIGHT_UNTIL = 5;
+  const isNight = (t) => { if (!t) return false; const h = new Date(t).getHours(); return h >= NIGHT_FROM || h < NIGHT_UNTIL; };
+  const OTOKO = { src: 'chars/kuro_otoko.png', w: 30, h: 62 };
+  const otokoIcon = L.divIcon({ className: '', iconSize: [OTOKO.w, OTOKO.h], iconAnchor: [OTOKO.w / 2, OTOKO.h - 2],
+    html: '<div class="otoko-icon" style="width:' + OTOKO.w + 'px;height:' + OTOKO.h + 'px"><img src="' + OTOKO.src + '" alt="黒い服の男"></div>' });
   const godIcon = (c) => L.divIcon({ className: '', iconSize: [36, 40], iconAnchor: [18, 38],
     html: '<div class="cat-icon god-follow" style="width:36px;height:40px"><img src="chars/shrine/' + c.img + '.png" alt="' + c.name + '"></div>' });
   const catIcon = L.divIcon({ className: '', iconSize: [34, 28], iconAnchor: [17, 26],
@@ -2339,7 +2361,8 @@
   async function prepareFollow(info, from, lenMs) {
     const kept = info.list.map((w) => w.points.filter((p) => p[3] !== 3));
     const pts = [], breaks = new Set();
-    for (const list of kept) list.forEach((p, i) => { if (i === 0 || p[3]) breaks.add(pts.length); pts.push([p[0], p[1]]); });
+    const times = [];
+    for (const list of kept) list.forEach((p, i) => { if (i === 0 || p[3]) breaks.add(pts.length); pts.push([p[0], p[1]]); times.push(p[2]); });
     if (pts.length < 2) return null;
     const cum = [0];
     for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + (breaks.has(i) ? 0 : distanceM(pts[i - 1], pts[i])));
@@ -2389,7 +2412,8 @@
     const look = WALKER_LOOKS[form] || WALKER_LOOKS.normal;
     const godsList = shrine.flowers.filter((f) => f.bloomAt).sort((a, b) => b.bloomAt - a.bloomAt);
     const turns = form !== 'normal' && !!WALKER_LOOKS[form];
-    const [walkerImg, catImg, poseImgs, ...godImgs] = await Promise.all([loadImg(look.src),
+    const [walkerImg, otokoImg, catImg, poseImgs, ...godImgs] = await Promise.all([loadImg(look.src),
+      times.some(isNight) ? loadImg(OTOKO.src) : null,
       shrine.points >= CAT_POINTS ? loadImg('chars/cat_sit.png') : null,
       turns ? [] : Promise.all(WALKER_POSES.map(loadImg)),
       ...godsList.map((f) => loadImg('chars/shrine/' + SHRINE_CHARS[f.char].img + '.png'))]);
@@ -2443,6 +2467,10 @@
       // ふつうのすがたは、ときどき走ったりピースしたりする（12秒ごとに2.5秒）
       const pose = !turns && t % 12000 >= 6000 && t % 12000 < 8500 ? poseImgs[Math.floor(t / 12000) % poseImgs.length] : null;
       g.save(); g.shadowColor = 'rgba(0,0,0,0.3)'; g.shadowBlur = 3; g.shadowOffsetY = 3;
+      // 夜の道では、黒い服の男が主人公のすぐうしろを一緒に歩く
+      if (otokoImg && isNight(times[here.i - 1])) {
+        g.save(); g.translate(here.west ? 22 : -22, 0); put(g, otokoImg, here.ll, OTOKO.w, OTOKO.h, here.west, stepAt(t + 140, 560, 2, 2)); g.restore();
+      }
       put(g, pose || walkerImg, here.ll, look.w, look.h, here.west, turns ? turnAt(t) : stepAt(t, 500, 2, 2));
       g.restore();
       g.setTransform(1, 0, 0, 1, 0, 0);
