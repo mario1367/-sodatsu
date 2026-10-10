@@ -2236,10 +2236,12 @@
     return new Promise((ok) => { const img = new Image(); img.onload = () => ok(img); img.onerror = () => ok(null); img.src = src; });
   }
   // 再生した日の道で作る。再生していないときは出さない
-  let shareList = null, shareDay = 0;
+  let shareList = null, shareDay = 0, shareMaking = false;
   function updateShareButton() {
     const btn = document.getElementById('shareButton');
-    const show = !!shareList && shareDay === viewDay && !current;
+    // 再生している間だけ出す（動画を作っている間と、できて送るのを待つ間は残す）
+    const playing = !document.getElementById('mapStop').hidden;
+    const show = !!shareList && shareDay === viewDay && !current && (playing || shareMaking || !!shareReady);
     btn.hidden = !show;
     if (!show) { shareReady = null; btn.disabled = false; btn.textContent = '📤 みんなに見せる'; }
   }
@@ -2404,9 +2406,10 @@
       const ready = shareReady; shareReady = null;
       btn.textContent = '📤 みんなに見せる';
       if (!(await sendShare(ready.file, ready.text))) { showNote('うまく送れませんでした。'); setTimeout(() => showNote(''), 4000); }
+      updateShareButton();
       return;
     }
-    btn.disabled = true;
+    btn.disabled = true; shareMaking = true;
     btn.textContent = '🎬 動画を作っています…';
     const info = shareInfo();
     const [pic, walker] = await Promise.all([info.stage.level >= 12 ? loadImg(picturePath(info.stage.level)) : null, loadImg('walker.png')]);
@@ -2415,9 +2418,10 @@
     if (!file || !(navigator.canShare && navigator.canShare({ files: [file] }))) {
       try { file = await makeShareImage(info, pic, walker); } catch (e) { file = null; }
     }
-    btn.disabled = false;
+    btn.disabled = false; shareMaking = false;
     shareReady = { file, text: shareText(info) };
     btn.textContent = file && file.type.startsWith('video') ? '📤 動画ができました！ 押して送る' : '📤 できました！ 押して送る';
+    updateShareButton();
   }
   document.getElementById('shareButton').addEventListener('click', shareGrowth);
 
