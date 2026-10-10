@@ -2392,6 +2392,9 @@
         g.fillStyle = 'rgba(255,255,255,0.8)'; g.fillRect(W - 150, H - 22, 150, 22);
         g.fillStyle = '#555'; g.font = '13px sans-serif'; g.textAlign = 'right'; g.fillText('© OpenStreetMap', W - 8, H - 11);
       }
+      g.fillStyle = 'rgba(63,143,79,0.92)'; g.beginPath(); g.roundRect(10, H - 50, 210, 38, 19); g.fill();
+      g.fillStyle = '#ffffff'; g.font = '700 20px "Zen Maru Gothic", "Hiragino Maru Gothic ProN", sans-serif'; g.textAlign = 'center';
+      g.fillText('🚶 おさんぽてくてく', 115, H - 31);
     };
     return { ms: ms + 600, draw };
   }
@@ -2401,7 +2404,7 @@
     const font = (size, w) => (w || 700) + ' ' + Math.round(size * k) + 'px "Zen Maru Gothic", "Hiragino Maru Gothic ProN", sans-serif';
     g.save(); g.globalAlpha = alpha;
     g.fillStyle = '#f4f7f2'; g.fillRect(0, 0, W, H);
-    const top = 190 * k, ph = 560 * k, left = 60 * k, pw = W - 120 * k;
+    const top = 175 * k, ph = 500 * k, left = 60 * k, pw = W - 120 * k;
     g.save();
     g.beginPath(); g.roundRect(left, top, pw, ph, 36 * k); g.clip();
     if (pic) {
@@ -2422,9 +2425,14 @@
     g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillStyle = '#24382a'; g.font = font(60); g.fillText('🚶 おさんぽてくてく', W / 2, 80 * k);
     g.fillStyle = '#62775f'; g.font = font(38, 500); g.fillText(recordDate(info.day) + ' の おさんぽ', W / 2, 148 * k);
-    g.fillStyle = '#3f8f4f'; g.font = font(96); g.fillText(info.steps.toLocaleString() + ' 歩', W / 2, top + ph + 100 * k);
-    g.fillStyle = '#24382a'; g.font = font(44); g.fillText('Lv' + info.stage.level + '「' + info.stage.name + '」', W / 2, top + ph + 190 * k);
-    g.fillStyle = '#62775f'; g.font = font(32, 500); g.fillText('これまで ' + info.total.toLocaleString() + ' 歩（めやす）', W / 2, top + ph + 255 * k);
+    g.fillStyle = '#3f8f4f'; g.font = font(96); g.fillText(info.steps.toLocaleString() + ' 歩', W / 2, top + ph + 90 * k);
+    g.fillStyle = '#24382a'; g.font = font(44); g.fillText('Lv' + info.stage.level + '「' + info.stage.name + '」', W / 2, top + ph + 170 * k);
+    g.fillStyle = '#62775f'; g.font = font(32, 500); g.fillText('これまで ' + info.total.toLocaleString() + ' 歩（めやす）', W / 2, top + ph + 228 * k);
+    // アプリへの案内（文が届かない SNS でも、動画を見た人がたどり着けるように）
+    g.fillStyle = '#3f8f4f'; g.beginPath(); g.roundRect(70 * k, 950 * k, W - 140 * k, 105 * k, 52 * k); g.fill();
+    g.fillStyle = '#ffffff'; g.font = font(34);
+    g.fillText('無料・登録なし「おさんぽてくてく」', W / 2, 982 * k);
+    g.font = font(30, 500); g.fillText('mario1367.github.io/-sodatsu', W / 2, 1027 * k);
     g.restore();
   }
   function videoType() {
@@ -2526,7 +2534,7 @@
   // 動画を作るのに数秒かかり、その間に「押した」扱いが切れて送れなくなるので、
   // できあがったらボタンを「送る」に変えて、もう一度押してもらう
   function shareText(info) {
-    return (info.day === startOfDay(Date.now()) ? '今日は ' : recordDate(info.day) + 'は ') + info.steps.toLocaleString() + ' 歩 おさんぽしました🚶 わたしの世界は Lv' + info.stage.level + '「' + info.stage.name + '」 #おさんぽてくてく';
+    return (info.day === startOfDay(Date.now()) ? '今日は ' : recordDate(info.day) + 'は ') + info.steps.toLocaleString() + ' 歩 おさんぽしました🚶 わたしの世界は Lv' + info.stage.level + '「' + info.stage.name + '」\n無料・登録なしのお散歩アプリ「おさんぽてくてく」はこちら👇 #おさんぽてくてく';
   }
   async function sendShare(file, text) {
     try {
