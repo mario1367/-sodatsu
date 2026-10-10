@@ -396,13 +396,10 @@
   .shrine-pin { font-size: 20px; line-height: 26px; width: 26px; height: 26px; text-align: center; background: #fff; border: 2px solid #b3262d; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
   .cat-icon img { width: 100%; height: 100%; display: block; transform-origin: 50% 100%; animation: step 0.42s ease-in-out infinite; }
   .cat-icon.west img { transform: scaleX(-1); }
-  /* 夜に一緒に歩く黒い服の男：主人公のすぐうしろ（進む向きと反対がわ）にならぶ */
-  .otoko-icon { transform: translateX(-22px); transition: transform 0.2s, opacity 0.8s; }
-  .otoko-icon.west { transform: translateX(22px) scaleX(-1); }
+  /* 夜に一緒に歩く黒い服の男：道にそって主人公（ネコがいるときはネコ）のうしろをついてくる */
+  .otoko-icon { transition: opacity 0.8s; }
+  .otoko-icon.west { transform: scaleX(-1); }
   .otoko-icon.away { opacity: 0; }
-  /* ネコがいるときは、ネコのうしろを道にそって歩く（横にずらさない） */
-  .otoko-icon.trail { transform: none; }
-  .otoko-icon.trail.west { transform: scaleX(-1); }
   .otoko-icon img { width: 100%; height: 100%; display: block; transform-origin: 50% 100%; animation: step 0.56s ease-in-out infinite; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3)); }
   .replay-paused .otoko-icon img { animation-play-state: paused; }
   @media (prefers-reduced-motion: reduce) { .otoko-icon img { animation: none; } }
@@ -2068,18 +2065,12 @@
         faceWalker(a, b);
         walker.setLatLng(pos);
       }
-      // ネコがいるときは 主人公→ネコ→男 の順に並ぶ（男とネコが重ならないように）
-      const otokoBack = otoko && cat ? CAT_GAP_M + OTOKO_GAP_PX * metersPerPx() : 0;
+      // 男は道にそって うしろをついてくる（ネコがいるときは 主人公→ネコ→男 の順）
+      const otokoBack = otoko ? (cat ? CAT_GAP_M : 0) + OTOKO_GAP_PX * metersPerPx() : 0;
       if (otoko) {
+        moveFollower(otoko, Math.max(0, traveled - otokoBack));
         const el = otoko.getElement() && otoko.getElement().firstChild;
-        if (cat) {
-          moveFollower(otoko, Math.max(0, traveled - otokoBack));
-        } else {
-          otoko.setLatLng(walker.getLatLng());
-          const we = document.getElementById('walkerEl');
-          if (el) el.classList.toggle('west', !!we && we.classList.contains('west'));
-        }
-        if (el) { el.classList.toggle('trail', !!cat); el.classList.toggle('away', !isNight(times[Math.max(0, drawn - 1)])); }
+        if (el) el.classList.toggle('away', !isNight(times[Math.max(0, drawn - 1)]));
       }
       if (cat) moveFollower(cat, Math.max(0, traveled - CAT_GAP_M));
       if (gods.length) { const gap = GOD_GAP_PX * metersPerPx(); const back = otokoBack || (cat ? CAT_GAP_M : 0); gods.forEach((g, i) => moveFollower(g, Math.max(0, traveled - back - gap * (i + 1)))); }
@@ -2117,7 +2108,7 @@
     document.querySelectorAll('#speedPick button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.speed === name)));
   }
   const CAT_GAP_M = 7; // ネコは人の 7m うしろ
-  const OTOKO_GAP_PX = 30; // ネコがいるとき、黒い服の男はネコのうしろ（画面の上でこれだけはなす）
+  const OTOKO_GAP_PX = 38; // 黒い服の男は、主人公（ネコがいるときはネコ）のうしろを画面の上でこれだけはなれてついてくる
   // 夜（その場所の時計で 18時〜朝5時）に歩いたところでは、黒い服の男が一緒に歩く
   const NIGHT_FROM = 18, NIGHT_UNTIL = 5;
   const isNight = (t) => { if (!t) return false; const h = new Date(t).getHours(); return h >= NIGHT_FROM || h < NIGHT_UNTIL; };
@@ -2473,11 +2464,11 @@
       g.strokeStyle = '#e53935'; g.lineWidth = 6; path(true);
       // ついてくる仲間（うしろから順に描く）
       const gap = GOD_GAP_PX * mPerPx;
-      // ネコがいる夜は 主人公→ネコ→男→神さま の順
+      // 夜は 主人公→（ネコ→）男→神さま の順。男も道にそってついてくる
       const night = otokoImg && isNight(times[here.i - 1]);
-      const otokoBack = otokoImg && catImg ? CAT_GAP_M + OTOKO_GAP_PX * mPerPx : 0;
+      const otokoBack = otokoImg ? (catImg ? CAT_GAP_M : 0) + OTOKO_GAP_PX * mPerPx : 0;
       godImgs.forEach((im, k) => { const back = d - (otokoBack || (catImg ? CAT_GAP_M : 0)) - gap * (k + 1); if (back > 0) { const p = posAt(back); put(g, im, p.ll, 36, 40, false, stepAt(t + k * 90, 420, 2, 2)); } });
-      if (night && catImg && d > otokoBack) {
+      if (night && d > otokoBack) {
         const p = posAt(d - otokoBack);
         g.save(); g.shadowColor = 'rgba(0,0,0,0.3)'; g.shadowBlur = 3; g.shadowOffsetY = 3; put(g, otokoImg, p.ll, OTOKO.w, OTOKO.h, p.west, stepAt(t + 140, 560, 2, 2)); g.restore();
       }
@@ -2485,10 +2476,6 @@
       // ふつうのすがたは、ときどき走ったりピースしたりする（12秒ごとに2.5秒）
       const pose = !turns && t % 12000 >= 6000 && t % 12000 < 8500 ? poseImgs[Math.floor(t / 12000) % poseImgs.length] : null;
       g.save(); g.shadowColor = 'rgba(0,0,0,0.3)'; g.shadowBlur = 3; g.shadowOffsetY = 3;
-      // 夜の道では、黒い服の男が主人公のすぐうしろを一緒に歩く
-      if (night && !catImg) {
-        g.save(); g.translate(here.west ? 22 : -22, 0); put(g, otokoImg, here.ll, OTOKO.w, OTOKO.h, here.west, stepAt(t + 140, 560, 2, 2)); g.restore();
-      }
       put(g, pose || walkerImg, here.ll, look.w, look.h, here.west, turns ? turnAt(t) : stepAt(t, 500, 2, 2));
       g.restore();
       g.setTransform(1, 0, 0, 1, 0, 0);
