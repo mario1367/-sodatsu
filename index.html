@@ -318,7 +318,7 @@
   /* 再生中の操作（速さ・とめる・見せる）は、地図の下に1列で並べる */
   .replay-bar {
     position: absolute; z-index: 760; left: 6px; right: 6px; bottom: 30px; display: flex; gap: 4px; align-items: center;
-    pointer-events: none;
+    flex-wrap: wrap; pointer-events: none; /* 画面がせまいスマホでは「見せる」を上の段に回して、はみ出さないようにする */
   }
   .replay-bar > * { pointer-events: auto; }
   .map-stop {
