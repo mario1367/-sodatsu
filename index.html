@@ -315,24 +315,29 @@
     85% { opacity: 1; }
     100% { opacity: 0; transform: translateY(-8px); }
   }
+  /* 再生中の操作（速さ・とめる・見せる）は、地図の下に1列で並べる */
+  .replay-bar {
+    position: absolute; z-index: 760; left: 6px; right: 6px; bottom: 30px; display: flex; gap: 4px; align-items: center;
+    pointer-events: none;
+  }
+  .replay-bar > * { pointer-events: auto; }
   .map-stop {
-    position: absolute; z-index: 760; right: 12px; bottom: 86px; border: none; border-radius: 999px; padding: 10px 16px;
-    background: var(--card); color: var(--ink); font-family: var(--font); font-weight: 700; font-size: 0.95rem;
+    border: none; border-radius: 999px; padding: 9px 9px; white-space: nowrap;
+    background: var(--card); color: var(--ink); font-family: var(--font); font-weight: 700; font-size: 0.78rem;
     box-shadow: 0 2px 10px rgba(0,0,0,0.2); cursor: pointer;
   }
   .speed-pick {
-    position: absolute; z-index: 760; left: 12px; bottom: 36px; display: flex; background: var(--card); border-radius: 999px; padding: 3px;
+    display: flex; background: var(--card); border-radius: 999px; padding: 3px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.2);
   }
   .speed-pick button {
-    border: none; background: transparent; color: var(--ink-soft); font-family: var(--font); font-weight: 700; font-size: 0.82rem;
-    padding: 7px 9px; border-radius: 999px; cursor: pointer; white-space: nowrap;
+    border: none; background: transparent; color: var(--ink-soft); font-family: var(--font); font-weight: 700; font-size: 0.74rem;
+    padding: 6px 5px; border-radius: 999px; cursor: pointer; white-space: nowrap;
   }
   .speed-pick button[aria-pressed="true"] { background: var(--go); color: var(--on-button); }
   /* 成長の森を見ている間は、地図の再生ボタンを出さない */
   .map-wrap.world-on .map-stop, .map-wrap.world-on .speed-pick { display: none; }
-  .map-share { bottom: 86px; background: var(--go); color: var(--on-button); }
-  #mapStop:has(~ .map-share:not([hidden])) { bottom: 136px; } /* 再生をとめる は みんなに見せる の上 */
+  .map-share { background: var(--go); color: var(--on-button); }
   .map-share:disabled { opacity: 0.85; cursor: default; }
   .walks li.all span:first-child { font-weight: 700; }
   .demo-bar { margin: 0; padding: 8px 12px; border-radius: 12px; background: #fff3c4; color: #5a4500; font-size: 0.85rem; font-weight: 700; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
@@ -488,10 +493,12 @@
     </section>
     <p class="map-note" id="mapNote" hidden></p>
     <p class="shrine-note" id="shrineNote" role="status" hidden></p>
-    <button class="map-stop" id="mapStop" type="button" hidden>■ 再生をとめる</button>
-    <button class="map-stop map-share" id="shareButton" type="button" hidden>📤 みんなに見せる</button>
-    <div class="speed-pick" id="speedPick" role="group" aria-label="再生の速さ" hidden>
+    <div class="replay-bar">
+      <div class="speed-pick" id="speedPick" role="group" aria-label="再生の速さ" hidden>
       <button type="button" data-speed="slow">🐢 ゆっくり</button><button type="button" data-speed="normal">🚶 ふつう</button><button type="button" data-speed="fast">🐇 はやい</button>
+    </div>
+      <button class="map-stop" id="mapStop" type="button" hidden>■ とめる</button>
+      <button class="map-stop map-share" id="shareButton" type="button" hidden>📤 見せる</button>
     </div>
   </div>
 
@@ -615,7 +622,8 @@
       </section>
       <section class="help-card">
         <h3>📤 みんなに見せる</h3>
-        <p>「▶ この日の道を再生」を押すと、地図に「📤 みんなに見せる」ボタンが出ます。押すと、その日の道がのびていく短い動画ができます。できたらもう一度押して、LINE などで送れます。動画にのるのは道の形と歩数と世界の絵だけで、地図や場所の名前はのりません。</p>
+        <p>「▶ この日の道を再生」を押すと、地図の下に「📤 見せる」ボタンが出ます。押すと、その日の道が地図の上をのびていく短い動画ができます（再生の速さ「ゆっくり・ふつう・はやい」に合わせた速さになります）。「📤 送る！」に変わったらもう一度押して、LINE などで送れます。</p>
+        <p class="help-small">動画には地図と歩いた道がのります。家の近くが写ることもあるので、送る相手に気をつけてください。</p>
       </section>
       <section class="help-card important">
         <h3>📍 位置情報の設定（iPhone）</h3>
@@ -2026,12 +2034,15 @@
     replayTimer = requestAnimationFrame(frame);
   }
   const REPLAY_SPEEDS = { slow: 0.5, normal: 1, fast: 2.5 }; // ふつう = これまでの速さ
+  let shareReady = null; // できあがって送るのを待っている動画（下の「みんなに見せる」）
   let replaySpeed = 'normal';
   try { replaySpeed = localStorage.getItem('aruku-speed') || 'normal'; } catch (e) {}
   if (!REPLAY_SPEEDS[replaySpeed]) replaySpeed = 'normal';
   function setReplaySpeed(name) {
     replaySpeed = name;
     try { localStorage.setItem('aruku-speed', name); } catch (e) {}
+    // 速さを変えたら、前の速さで作った動画は使わない
+    if (shareReady) { shareReady = null; document.getElementById('shareButton').textContent = '📤 見せる'; }
     document.querySelectorAll('#speedPick button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.speed === name)));
   }
   const CAT_GAP_M = 7; // ネコは人の 7m うしろ
@@ -2245,11 +2256,11 @@
     try { localStorage.setItem(HOME_TIP_KEY, '1'); } catch (e) {}
   });
 
-  // ===== 成長をみんなに見せる（今日の道がのびていく短い動画。作れないスマホでは画像） =====
-  // 送るのは絵と歩数と道の形だけ。地図や住所はのせない
+  // ===== 成長をみんなに見せる（再生した日の道が地図の上をのびていく短い動画。作れないスマホでは画像） =====
   const APP_URL = 'https://mario1367.github.io/-sodatsu/';
   const SHARE_W = 720, SHARE_H = 720;
-  const SHARE_ROUTE_MS = 9000; // 道がのびていく時間
+  // 道がのびていく時間。再生の速さ（ゆっくり・ふつう・はやい）に合わせる
+  const SHARE_ROUTE_MS = { slow: 15000, normal: 9000, fast: 5000 };
   function loadImg(src) {
     return new Promise((ok) => { const img = new Image(); img.onload = () => ok(img); img.onerror = () => ok(null); img.src = src; });
   }
@@ -2261,7 +2272,7 @@
     const playing = !document.getElementById('mapStop').hidden;
     const show = !!shareList && shareDay === viewDay && !current && (playing || shareMaking || !!shareReady);
     btn.hidden = !show;
-    if (!show) { shareReady = null; btn.disabled = false; btn.textContent = '📤 みんなに見せる'; }
+    if (!show) { shareReady = null; btn.disabled = false; btn.textContent = '📤 見せる'; }
   }
   function shareInfo() {
     const list = shareList || [];
@@ -2419,7 +2430,7 @@
     const g = cv.getContext('2d');
     const lines = routeLines(info.list, { x: 70, y: 215, w: SHARE_W - 140, h: SHARE_H - 265 });
     const map = await loadShareMap(lines.view);
-    const ROUTE = lines.length ? SHARE_ROUTE_MS : 0, FADE = 700, END = 2500;
+    const ROUTE = lines.length ? (SHARE_ROUTE_MS[replaySpeed] || SHARE_ROUTE_MS.normal) : 0, FADE = 700, END = 2500;
     const frames = Math.round((ROUTE + FADE + END) / 1000 * FPS);
     for (let i = 0; i < frames && !failed; i++) {
       const ms = i * 1000 / FPS;
@@ -2449,7 +2460,7 @@
     const g = cv.getContext('2d');
     const lines = routeLines(info.list, { x: 70, y: 215, w: SHARE_W - 140, h: SHARE_H - 265 });
     const map = await loadShareMap(lines.view);
-    const ROUTE = lines.length ? SHARE_ROUTE_MS : 0, FADE = 700, END = 2500;
+    const ROUTE = lines.length ? (SHARE_ROUTE_MS[replaySpeed] || SHARE_ROUTE_MS.normal) : 0, FADE = 700, END = 2500;
     const stream = cv.captureStream(30);
     const rec = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 2500000 });
     const chunks = [];
@@ -2488,7 +2499,6 @@
   }
   // 動画を作るのに数秒かかり、その間に「押した」扱いが切れて送れなくなるので、
   // できあがったらボタンを「送る」に変えて、もう一度押してもらう
-  let shareReady = null;
   function shareText(info) {
     return (info.day === startOfDay(Date.now()) ? '今日は ' : recordDate(info.day) + 'は ') + info.steps.toLocaleString() + ' 歩 おさんぽしました🚶 わたしの世界は Lv' + info.stage.level + '「' + info.stage.name + '」 #おさんぽてくてく';
   }
@@ -2512,13 +2522,13 @@
     const btn = document.getElementById('shareButton');
     if (shareReady) {
       const ready = shareReady; shareReady = null;
-      btn.textContent = '📤 みんなに見せる';
+      btn.textContent = '📤 見せる';
       if (!(await sendShare(ready.file, ready.text))) { showNote('うまく送れませんでした。'); setTimeout(() => showNote(''), 4000); }
       updateShareButton();
       return;
     }
     btn.disabled = true; shareMaking = true;
-    btn.textContent = '🎬 動画を作っています…';
+    btn.textContent = '🎬 作成中';
     const info = shareInfo();
     const [pic, walker] = await Promise.all([info.stage.level >= 12 ? loadImg(picturePath(info.stage.level)) : null, loadImg('walker.png')]);
     let file = null;
@@ -2528,7 +2538,7 @@
     }
     btn.disabled = false; shareMaking = false;
     shareReady = { file, text: shareText(info) };
-    btn.textContent = file && file.type.startsWith('video') ? '📤 動画ができました！ 押して送る' : '📤 できました！ 押して送る';
+    btn.textContent = file && file.type.startsWith('video') ? '📤 送る！' : '📤 送る！';
     updateShareButton();
   }
   document.getElementById('shareButton').addEventListener('click', shareGrowth);
