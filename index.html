@@ -628,7 +628,7 @@
           <li>「🎬 作成中」のあと「<b>📤 送る！</b>」に変わったら、もう一度押す</li>
           <li>LINE や SNS をえらんで送る</li>
         </ol>
-        <p>動画は再生と同じように、地図の上を歩いていく様子になります。速さは「ゆっくり・ふつう・はやい」で選んだ速さと同じです（長い散歩では1〜4分ほどの動画になります）。</p>
+        <p>動画は再生と同じように、地図の上を歩いていく様子になります。速さは「ゆっくり・ふつう・はやい」で選んだ速さと同じです（動画は30秒ほど。長い散歩は地図を少し引いて見せます）。</p>
         <p class="help-small">LINE などのアプリの中でこのページを開いていると、うまく送れないことがあります。そのときは「ブラウザで開く」を押してから試してください。</p>
         <p class="help-small">動画には地図と歩いた道がのります。家の近くが写ることもあるので、送る相手に気をつけてください。</p>
       </section>
@@ -2266,6 +2266,7 @@
   // ===== 成長をみんなに見せる（再生した日の道が地図の上をのびていく短い動画。作れないスマホでは画像） =====
   const APP_URL = 'https://mario1367.github.io/-sodatsu/';
   const SHARE_W = 720, SHARE_H = 720;
+  const SHARE_WALK_MS = 26000; // 動画の歩く場面の長さ（まりおさんの希望で、動画ぜんぶで30秒ほど）
   function loadImg(src) {
     return new Promise((ok) => { const img = new Image(); img.onload = () => ok(img); img.onerror = () => ok(null); img.src = src; });
   }
@@ -2301,8 +2302,11 @@
     for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + (breaks.has(i) ? 0 : distanceM(pts[i - 1], pts[i])));
     const meters = cum[cum.length - 1];
     if (!meters) return null;
-    // 再生とまったく同じ長さ（18〜120秒 ÷ 速さ）。短くすると、長い散歩ほど再生より速く見えてしまう
-    const ms = Math.min(120000, Math.max(18000, meters / 15 * 1000)) / (REPLAY_SPEEDS[replaySpeed] || 1);
+    // 動画は30秒ほど（歩く場面は長くても26秒＋カード）。再生より短くしたぶんは地図を引いて見せて、
+    // 画面の上では再生と同じくらいの速さで歩いて見えるようにする（短くしただけだと速く見えてしまう）
+    const replayMs = Math.min(120000, Math.max(18000, meters / 15 * 1000)) / (REPLAY_SPEEDS[replaySpeed] || 1);
+    const ms = Math.min(replayMs, SHARE_WALK_MS);
+    const zoomF = REPLAY_ZOOM + Math.log2(ms / replayMs);
     const W = SHARE_W, H = SHARE_H;
     const posAt = (d) => {
       let i = 1;
@@ -2311,8 +2315,9 @@
       return { i, f, ll: [pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * f, pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * f], west: pts[i][1] < pts[i - 1][1] };
     };
     // 使うタイルを先に集める（多すぎるときは1段遠くする）
-    let Z = REPLAY_ZOOM, SCALE = 1.6, tiles = null;
-    for (; Z >= 15; Z--) {
+    let Z = Math.round(zoomF), tiles = null;
+    const SCALE = 1.6 * Math.pow(2, zoomF - Z);
+    for (; Z >= 10; Z--) {
       const need = new Set();
       const half = [W / 2 / SCALE, H / 2 / SCALE];
       const step = Math.max(1, meters / 400);
@@ -2452,7 +2457,7 @@
     let config = null, kind = '';
     // ふつうは H.264（どのスマホ・SNSでも見られる）。使えないときだけ VP9
     for (const [codec, k] of [['avc1.42001f', 'avc'], ['avc1.4d401f', 'avc'], ['avc1.640028', 'avc'], ['vp09.00.31.08', 'vp9']]) {
-      const c = { codec, width: SHARE_W, height: SHARE_H, bitrate: 1500000, framerate: FPS };
+      const c = { codec, width: SHARE_W, height: SHARE_H, bitrate: 2500000, framerate: FPS };
       if (k === 'avc') c.avc = { format: 'avc' };
       try { if ((await VideoEncoder.isConfigSupported(c)).supported) { config = c; kind = k; break; } } catch (e) {}
     }
@@ -2498,7 +2503,7 @@
     const scene = await prepareFollow(info);
     const ROUTE = scene ? scene.ms : 0, FADE = 700, END = 2500;
     const stream = cv.captureStream(30);
-    const rec = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 1500000 });
+    const rec = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 2500000 });
     const chunks = [];
     rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
     const stopped = new Promise((ok) => { rec.onstop = ok; });
