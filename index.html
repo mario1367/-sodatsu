@@ -516,7 +516,7 @@
       <button class="map-stop map-share" id="shareButton" type="button" hidden>📤 見せる</button>
     </div>
     <div class="share-len" id="shareLen" role="group" aria-label="動画の長さ" hidden>
-      <p>動画の長さは？<small>いま再生しているところから切り抜きます</small></p>
+      <p>動画の長さは？<small>いま再生しているところまでを、さかのぼって切り抜きます</small></p>
       <div><button type="button" data-len="15">15秒</button><button type="button" data-len="30">30秒</button><button type="button" data-len="60">1分</button></div>
       <button type="button" class="share-len-close" id="shareLenClose" aria-label="やめる">✕</button>
     </div>
@@ -649,7 +649,7 @@
           <li>「🎬 作成中」のあと「<b>📤 送る！</b>」に変わったら、もう一度押す</li>
           <li>LINE や SNS をえらんで送る</li>
         </ol>
-        <p>動画は再生と同じように、地図の上を歩いていく様子になります。速さは「ゆっくり・ふつう・はやい」で選んだ速さと同じです（動画は「見せる」を押したときに再生していたところから、えらんだ長さだけ切り抜きます。見せたい場面で押してください）。</p>
+        <p>動画は再生と同じように、地図の上を歩いていく様子になります。速さは「ゆっくり・ふつう・はやい」で選んだ速さと同じです（動画は「見せる」を押したところまでを、えらんだ長さだけさかのぼって切り抜きます。見せたい場面が終わったところで押してください）。</p>
         <p class="help-small">LINE などのアプリの中でこのページを開いていると、うまく送れないことがあります。そのときは「ブラウザで開く」を押してから試してください。</p>
         <p class="help-small">動画には地図と歩いた道がのります。家の近くが写ることもあるので、送る相手に気をつけてください。</p>
       </section>
@@ -2338,11 +2338,12 @@
     for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + (breaks.has(i) ? 0 : distanceM(pts[i - 1], pts[i])));
     const meters = cum[cum.length - 1];
     if (!meters) return null;
-    // 速さ・地図の近さは再生と同じ。道が長ければ、えらんだ長さのぶんだけ切り抜く（残りが足りないときは前にずらす）
+    // 速さ・地図の近さは再生と同じ。道が長ければ、えらんだ長さのぶんだけ切り抜く
     const replayMs = Math.min(120000, Math.max(18000, meters / 15 * 1000)) / (REPLAY_SPEEDS[replaySpeed] || 1);
     const ms = Math.min(replayMs, lenMs);
     const clipM = meters * ms / replayMs;
-    const startM = Math.max(0, Math.min(meters - clipM, (from || 0) * meters));
+    // 押したところで終わるように、さかのぼって切り抜く（はじめから押したところまでが短いときは、はじめから）
+    const startM = Math.max(0, Math.min(meters - clipM, (from || 0) * meters - clipM));
     const W = SHARE_W, H = SHARE_H;
     const posAt = (d) => {
       let i = 1;
