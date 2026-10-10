@@ -2249,6 +2249,7 @@
   // 送るのは絵と歩数と道の形だけ。地図や住所はのせない
   const APP_URL = 'https://mario1367.github.io/-sodatsu/';
   const SHARE_W = 720, SHARE_H = 720;
+  const SHARE_ROUTE_MS = 9000; // 道がのびていく時間
   function loadImg(src) {
     return new Promise((ok) => { const img = new Image(); img.onload = () => ok(img); img.onerror = () => ok(null); img.src = src; });
   }
@@ -2269,18 +2270,58 @@
     return { list, day: shareDay, steps: Math.round(meters / STRIDE_M), total, stage: getStage(total) };
   }
   // 今日の道を、動画の枠に収まる点の並びにする
+  // 地図と同じ図法（ズーム z のときの世界ピクセル）
+  function worldPx(p, z) {
+    const n = 256 * Math.pow(2, z), s = Math.sin(p[0] * Math.PI / 180);
+    return [(p[1] + 180) / 360 * n, (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * n];
+  }
+  // 道が枠に収まるいちばん近いズームを選び、動画の上の点にする（view に地図の位置を覚える）
   function routeLines(list, box) {
     const segs = list.flatMap(segmentsOf);
     const pts = segs.flat();
     if (pts.length < 2) return [];
-    const lat0 = pts[0][0] * Math.PI / 180;
-    const xy = (p) => [p[1] * Math.cos(lat0), -p[0]];
-    const all = pts.map(xy);
-    const minX = Math.min(...all.map((p) => p[0])), maxX = Math.max(...all.map((p) => p[0]));
-    const minY = Math.min(...all.map((p) => p[1])), maxY = Math.max(...all.map((p) => p[1]));
-    const r = Math.min(box.w / Math.max(1e-6, maxX - minX), box.h / Math.max(1e-6, maxY - minY));
-    const ox = box.x + (box.w - (maxX - minX) * r) / 2, oy = box.y + (box.h - (maxY - minY) * r) / 2;
-    return segs.map((seg) => seg.map((p) => { const q = xy(p); return [ox + (q[0] - minX) * r, oy + (q[1] - minY) * r]; }));
+    let z = 18;
+    for (; z > 3; z--) {
+      const all = pts.map((p) => worldPx(p, z));
+      const w = Math.max(...all.map((q) => q[0])) - Math.min(...all.map((q) => q[0]));
+      const h = Math.max(...all.map((q) => q[1])) - Math.min(...all.map((q) => q[1]));
+      if (w <= box.w && h <= box.h) break;
+    }
+    const all = pts.map((p) => worldPx(p, z));
+    const minX = Math.min(...all.map((q) => q[0])), maxX = Math.max(...all.map((q) => q[0]));
+    const minY = Math.min(...all.map((q) => q[1])), maxY = Math.max(...all.map((q) => q[1]));
+    const ox = (minX + maxX) / 2 - (box.x + box.w / 2), oy = (minY + maxY) / 2 - (box.y + box.h / 2);
+    const lines = segs.map((seg) => seg.map((p) => { const q = worldPx(p, z); return [q[0] - ox, q[1] - oy]; }));
+    lines.view = { z, ox, oy };
+    return lines;
+  }
+  // 動画の後ろに出す地図（OpenStreetMap のタイル）。読めなかったタイルは方眼のまま
+  async function loadShareMap(view) {
+    if (!view) return null;
+    const cv = document.createElement('canvas'); cv.width = SHARE_W; cv.height = SHARE_H;
+    const g = cv.getContext('2d');
+    g.fillStyle = '#eef5e9'; g.fillRect(0, 0, SHARE_W, SHARE_H);
+    const n = Math.pow(2, view.z), jobs = [];
+    for (let tx = Math.floor(view.ox / 256); tx * 256 < view.ox + SHARE_W; tx++) {
+      for (let ty = Math.floor(view.oy / 256); ty * 256 < view.oy + SHARE_H; ty++) {
+        if (ty < 0 || ty >= n) continue;
+        jobs.push(new Promise((ok) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          const timer = setTimeout(() => ok(), 8000);
+          img.onload = () => { clearTimeout(timer); g.drawImage(img, tx * 256 - view.ox, ty * 256 - view.oy); ok(); };
+          img.onerror = () => { clearTimeout(timer); ok(); };
+          img.src = 'https://tile.openstreetmap.org/' + view.z + '/' + (((tx % n) + n) % n) + '/' + ty + '.png';
+        }));
+      }
+    }
+    await Promise.all(jobs);
+    try { g.getImageData(0, 0, 1, 1); } catch (e) { return null; } // 動画にできない地図は使わない
+    g.fillStyle = 'rgba(255,255,255,0.18)'; g.fillRect(0, 0, SHARE_W, SHARE_H);
+    g.fillStyle = 'rgba(255,255,255,0.8)'; g.fillRect(SHARE_W - 150, SHARE_H - 22, 150, 22);
+    g.fillStyle = '#555'; g.font = '13px sans-serif'; g.textAlign = 'right'; g.textBaseline = 'middle';
+    g.fillText('© OpenStreetMap', SHARE_W - 8, SHARE_H - 11);
+    return cv;
   }
   // できあがりの1枚（歩数・レベル・世界の絵）
   function drawShareCard(g, info, pic, walker, alpha) {
@@ -2315,12 +2356,15 @@
     g.restore();
   }
   // 道がのびていく場面（t: 0〜1）
-  function drawShareRoute(g, info, lines, walker, t) {
+  function drawShareRoute(g, info, lines, walker, t, map) {
     const W = SHARE_W, H = SHARE_H;
-    g.fillStyle = '#eef5e9'; g.fillRect(0, 0, W, H);
-    g.strokeStyle = '#dde9d6'; g.lineWidth = 1;
-    for (let x = 0; x <= W; x += 40) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); }
-    for (let y = 0; y <= H; y += 40) { g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+    if (map) g.drawImage(map, 0, 0);
+    else {
+      g.fillStyle = '#eef5e9'; g.fillRect(0, 0, W, H);
+      g.strokeStyle = '#dde9d6'; g.lineWidth = 1;
+      for (let x = 0; x <= W; x += 40) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); }
+      for (let y = 0; y <= H; y += 40) { g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+    }
     const total = lines.reduce((s, l) => s + l.length - 1, 0);
     let left = t * total, head = null, dir = 1;
     g.strokeStyle = '#e53935'; g.lineWidth = 9; g.lineCap = 'round'; g.lineJoin = 'round';
@@ -2374,13 +2418,14 @@
     const cv = document.createElement('canvas'); cv.width = SHARE_W; cv.height = SHARE_H;
     const g = cv.getContext('2d');
     const lines = routeLines(info.list, { x: 70, y: 215, w: SHARE_W - 140, h: SHARE_H - 265 });
-    const ROUTE = lines.length ? 4000 : 0, FADE = 700, END = 2500;
+    const map = await loadShareMap(lines.view);
+    const ROUTE = lines.length ? SHARE_ROUTE_MS : 0, FADE = 700, END = 2500;
     const frames = Math.round((ROUTE + FADE + END) / 1000 * FPS);
     for (let i = 0; i < frames && !failed; i++) {
       const ms = i * 1000 / FPS;
-      if (ms < ROUTE) drawShareRoute(g, info, lines, walker, Math.min(1, ms / (ROUTE - 500)));
+      if (ms < ROUTE) drawShareRoute(g, info, lines, walker, Math.min(1, ms / (ROUTE - 500)), map);
       else {
-        if (lines.length) drawShareRoute(g, info, lines, walker, 1);
+        if (lines.length) drawShareRoute(g, info, lines, walker, 1, map);
         drawShareCard(g, info, pic, walker, Math.min(1, (ms - ROUTE) / FADE));
       }
       const frame = new VideoFrame(cv, { timestamp: Math.round(i * 1e6 / FPS), duration: Math.round(1e6 / FPS) });
@@ -2403,16 +2448,17 @@
     const cv = document.createElement('canvas'); cv.width = SHARE_W; cv.height = SHARE_H;
     const g = cv.getContext('2d');
     const lines = routeLines(info.list, { x: 70, y: 215, w: SHARE_W - 140, h: SHARE_H - 265 });
-    const ROUTE = lines.length ? 4000 : 0, FADE = 700, END = 2500;
+    const map = await loadShareMap(lines.view);
+    const ROUTE = lines.length ? SHARE_ROUTE_MS : 0, FADE = 700, END = 2500;
     const stream = cv.captureStream(30);
     const rec = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 2500000 });
     const chunks = [];
     rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
     const stopped = new Promise((ok) => { rec.onstop = ok; });
     const draw = (ms) => {
-      if (ms < ROUTE) drawShareRoute(g, info, lines, walker, Math.min(1, ms / (ROUTE - 500)));
+      if (ms < ROUTE) drawShareRoute(g, info, lines, walker, Math.min(1, ms / (ROUTE - 500)), map);
       else {
-        if (lines.length) drawShareRoute(g, info, lines, walker, 1);
+        if (lines.length) drawShareRoute(g, info, lines, walker, 1, map);
         drawShareCard(g, info, pic, walker, Math.min(1, (ms - ROUTE) / FADE));
       }
     };
