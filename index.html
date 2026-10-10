@@ -114,6 +114,7 @@
     100%      { transform: scaleX(1) translateY(0) rotate(0deg); }
   }
   @media (prefers-reduced-motion: reduce) { .walker-icon img, .walker-icon.turn img { animation: none; } }
+  .replay-paused .walker-icon img, .replay-paused .cat-icon img { animation-play-state: paused; }
   .here-dot {
     width: 16px; height: 16px; border-radius: 50%;
     background: #2f7de1; border: 3px solid #fff;
@@ -511,7 +512,7 @@
       <div class="speed-pick" id="speedPick" role="group" aria-label="再生の速さ" hidden>
       <button type="button" data-speed="slow">🐢 ゆっくり</button><button type="button" data-speed="normal">🚶 ふつう</button><button type="button" data-speed="fast">🐇 はやい</button>
     </div>
-      <button class="map-stop" id="mapStop" type="button" hidden>■ とめる</button>
+      <button class="map-stop" id="mapStop" type="button" hidden>⏸ とめる</button>
       <button class="map-stop map-share" id="shareButton" type="button" hidden>📤 見せる</button>
     </div>
     <div class="share-len" id="shareLen" role="group" aria-label="動画の長さ" hidden>
@@ -590,9 +591,9 @@
           <li>共有ボタン（□に↑のマーク）を押す（見つからないときは「…」→「共有」）</li>
           <li>「ホーム画面に追加」を押す</li>
         </ol>
-        <p class="help-small">Android では、パネルの「📱 ホーム画面に追加する」を押して、「アプリをインストール」と出たら「インストール」を押します。これでホーム画面にアイコンが出ます。</p>
-        <p class="help-small">ホーム画面のアイコンから、アプリのようにすぐ開けます。iPhone では、ホーム画面に追加しないまま しばらく開かないと、記録が消えてしまうことがあります。</p>
-        <p class="help-small">iPhone では、Safari とホーム画面のアプリで記録が別々になります。Safari で歩いた記録があるときは、先に「💾 ファイルに保存」をしてから追加し、ホーム画面のアプリで「ファイルから戻す」を押してください。</p>
+        <p>Android では、パネルの「📱 ホーム画面に追加する」を押して、「アプリをインストール」と出たら「インストール」を押します。これでホーム画面にアイコンが出ます。</p>
+        <p>ホーム画面のアイコンから、アプリのようにすぐ開けます。iPhone では、ホーム画面に追加しないまま しばらく開かないと、記録が消えてしまうことがあります。</p>
+        <p>iPhone では、Safari とホーム画面のアプリで記録が別々になります。Safari で歩いた記録があるときは、先に「💾 ファイルに保存」をしてから追加し、ホーム画面のアプリで「ファイルから戻す」を押してください。</p>
       </section>
       <section class="help-card">
         <h3>🚶 歩きかた</h3>
@@ -606,7 +607,7 @@
       </section>
       <section class="help-card">
         <h3>📅 前の日を見る・道を再生する</h3>
-        <p>日付の横の「‹」「›」で、前の日の記録を見られます。「▶ この日の道を再生」を押すと、歩いた道をもう一度たどれます。</p>
+        <p>日付の横の「‹」「›」で、前の日の記録を見られます。「▶ この日の道を再生」を押すと、歩いた道をもう一度たどれます。地図の下の「⏸ とめる」で一時停止、「▶ つづき」で続きから。すっかりやめるときは「■ 再生をとめる」を押します。</p>
       </section>
       <section class="help-card">
         <h3>🌳 成長の森</h3>
@@ -676,7 +677,7 @@
       <section class="help-card">
         <p id="addSaveFirst" hidden><b>はじめに</b>、パネルの「💾 ファイルに保存」をしておいてください。iPhone ではホーム画面のアプリに記録が引きつがれないので、追加したあと「ファイルから戻す」で戻します。</p>
         <ol class="add-steps" id="addStepsIphone">
-          <li>Safari の画面の下（または上）にある <b>共有ボタン</b>（□に↑のマーク）を押す<br><span class="help-small">見つからないときは「…」を押して、出てきた「<b>共有</b>」を押す</span></li>
+          <li>Safari の画面の下（または上）にある <b>共有ボタン</b>（□に↑のマーク）を押す<br><span>見つからないときは「…」を押して、出てきた「<b>共有</b>」を押す</span></li>
           <li>下へ進んで「<b>ホーム画面に追加</b>」を押す</li>
           <li>右上の「<b>追加</b>」を押す</li>
         </ol>
@@ -686,8 +687,8 @@
           <li>「<b>追加</b>」「<b>インストール</b>」を押す</li>
         </ol>
         <p id="addInApp" hidden><b>いまは LINE などのアプリの中で開いています。</b>ここからはホーム画面に追加できないので、右上（または右下）のメニューから「<b>ブラウザで開く</b>」「<b>Chrome で開く</b>」を押して、開いたページでもう一度「📱 ホーム画面に追加する」を押してください。</p>
-        <p class="help-small" id="addRetry" hidden>Chrome では、ページを少し使ってからもう一度ボタンを押すと、すぐに追加の画面が出ることがあります。</p>
-        <p class="help-small">ホーム画面の「おさんぽてくてく」のアイコンから、アプリのようにすぐ開けます。</p>
+        <p id="addRetry" hidden>Chrome では、ページを少し使ってからもう一度ボタンを押すと、すぐに追加の画面が出ることがあります。</p>
+        <p>ホーム画面の「おさんぽてくてく」のアイコンから、アプリのようにすぐ開けます。</p>
       </section>
     </div>
     <div class="add-arrow" id="addArrow" aria-hidden="true">👇</div>
@@ -1950,6 +1951,12 @@
   // ===== 再生（人が線を引きながら歩く） =====
   let replayTimer = null;
   let replayFrac = 0; // 再生がどこまで進んだか（0〜1）
+  let replayPaused = false; // 地図の下の「⏸ とめる」で一時停止しているか
+  function setReplayPaused(on) {
+    replayPaused = on;
+    document.getElementById('mapStop').textContent = on ? '▶ つづき' : '⏸ とめる';
+    document.getElementById('map').classList.toggle('replay-paused', on); // 歩く動きも止める
+  }
 
   // only に番号を渡すと、その1回の散歩だけを再生する
   function replayDay(only) {
@@ -2008,6 +2015,8 @@
     setReplayUI(true);
 
     function frame(now) {
+      // 一時停止中は、その場で待つ（地図もそのまま）
+      if (replayPaused) { last = now; replayTimer = requestAnimationFrame(frame); return; }
       // 速さボタン（ゆっくり・ふつう・はやい）で、進み方を途中からでも変えられる
       traveledSoFar += (now - last) / durationMs * meters * REPLAY_SPEEDS[replaySpeed];
       last = now;
@@ -2089,6 +2098,7 @@
     if (replayTimer) cancelAnimationFrame(replayTimer);
     replayTimer = null;
     walker = null;
+    setReplayPaused(false);
     setReplayUI(false);
   }
   function setReplayUI(playing) {
@@ -2125,7 +2135,8 @@
       if (over > 0) window.scrollBy({ top: Math.min(over, btnTop - 8), behavior: 'smooth' });
     }
   });
-  document.getElementById('mapStop').addEventListener('click', () => stopReplay());
+  // 地図の下のボタンは一時停止（もう一度押すと続きから）。すっかりやめるのは下の「■ 再生をとめる」
+  document.getElementById('mapStop').addEventListener('click', () => setReplayPaused(!replayPaused));
   document.getElementById('speedPick').addEventListener('click', (e) => { const b = e.target.closest('button[data-speed]'); if (b) setReplaySpeed(b.dataset.speed); });
   setReplaySpeed(replaySpeed);
   // 一覧の散歩を押すと、その散歩だけ再生
