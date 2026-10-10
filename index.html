@@ -326,6 +326,8 @@
   .speed-pick button[aria-pressed="true"] { background: var(--go); color: var(--on-button); }
   /* 成長の森を見ている間は、地図の再生ボタンを出さない */
   .map-wrap.world-on .map-stop, .map-wrap.world-on .speed-pick { display: none; }
+  .map-share { bottom: 136px; background: var(--go); color: var(--on-button); }
+  .map-share:disabled { opacity: 0.85; cursor: default; }
   .walks li.all span:first-child { font-weight: 700; }
   .demo-bar { margin: 0; padding: 8px 12px; border-radius: 12px; background: #fff3c4; color: #5a4500; font-size: 0.85rem; font-weight: 700; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
   .demo-bar a { color: inherit; }
@@ -420,7 +422,6 @@
     border: 2px solid var(--path); background: transparent; color: var(--ink);
     font-family: var(--font); font-weight: 700; font-size: 1rem; cursor: pointer;
   }
-  .share-button { border-color: var(--go); }
   /* ホーム画面に追加のおすすめ・記録の引っこしのお知らせ */
   .home-tip { margin: 0; padding: 10px 12px; border-radius: 14px; background: #e6f3e2; color: #24382a; font-size: 0.92rem; font-weight: 700; line-height: 1.6; display: flex; gap: 8px; align-items: flex-start; }
   .home-tip span { flex: 1; }
@@ -428,6 +429,11 @@
   .home-tip .tip-more { text-decoration: underline; padding: 0; font-size: inherit; }
   .home-tip .tip-close { font-size: 1.1rem; }
   /* 記録の保存（バックアップ） */
+  .add-home { border-color: var(--go); }
+  .add-steps { margin: 6px 0 0; padding-left: 1.4em; font-size: 1.15rem; line-height: 1.9; }
+  .add-steps b { color: var(--go); }
+  .add-arrow { text-align: center; font-size: 3rem; line-height: 1; margin-top: 8px; animation: add-bob 1s ease-in-out infinite; }
+  @keyframes add-bob { 50% { transform: translateY(8px); } }
   .keep { border: 2px solid var(--track); border-radius: 18px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
   .keep-head { font-size: 0.95rem; font-weight: 700; }
   .keep p { margin: 0; font-size: 0.85rem; color: var(--ink-soft); line-height: 1.6; }
@@ -477,6 +483,7 @@
     <p class="map-note" id="mapNote" hidden></p>
     <p class="shrine-note" id="shrineNote" role="status" hidden></p>
     <button class="map-stop" id="mapStop" type="button" hidden>■ 再生をとめる</button>
+    <button class="map-stop map-share" id="shareButton" type="button" hidden>📤 みんなに見せる</button>
     <div class="speed-pick" id="speedPick" role="group" aria-label="再生の速さ" hidden>
       <button type="button" data-speed="slow">🐢 ゆっくり</button><button type="button" data-speed="normal">🚶 ふつう</button><button type="button" data-speed="fast">🐇 はやい</button>
     </div>
@@ -518,8 +525,8 @@
       <p class="shrine-text" id="shrineText"></p>
     </div>
 
-    <div class="sub-row">
-      <button class="sub-button share-button" id="shareButton" type="button">📤 成長をみんなに見せる</button>
+    <div class="sub-row" id="addHomeRow" hidden>
+      <button class="sub-button add-home" id="addHomeButton" type="button">📱 ホーム画面に追加する</button>
     </div>
 
     <div class="keep" id="keep">
@@ -547,7 +554,7 @@
         <h3>📱 ホーム画面に追加すると便利</h3>
         <ol>
           <li>Safari でこのページを開く</li>
-          <li>下の 共有ボタン（□に↑のマーク）を押す</li>
+          <li>共有ボタン（□に↑のマーク）を押す（見つからないときは「…」→「共有」）</li>
           <li>「ホーム画面に追加」を押す</li>
         </ol>
         <p class="help-small">ホーム画面のアイコンから、アプリのようにすぐ開けます。iPhone では、ホーム画面に追加しないまま しばらく開かないと、記録が消えてしまうことがあります。</p>
@@ -600,7 +607,7 @@
       </section>
       <section class="help-card">
         <h3>📤 みんなに見せる</h3>
-        <p>「📤 成長をみんなに見せる」を押すと、今日の道がのびていく短い動画ができます。できたらもう一度押して、LINE などで送れます。動画にのるのは道の形と歩数と世界の絵だけで、地図や場所の名前はのりません。</p>
+        <p>「▶ この日の道を再生」を押すと、地図に「📤 みんなに見せる」ボタンが出ます。押すと、その日の道がのびていく短い動画ができます。できたらもう一度押して、LINE などで送れます。動画にのるのは道の形と歩数と世界の絵だけで、地図や場所の名前はのりません。</p>
       </section>
       <section class="help-card important">
         <h3>📍 位置情報の設定（iPhone）</h3>
@@ -616,6 +623,29 @@
         <p class="help-small">Android のときは、ブラウザの設定でこのページの位置情報を「許可」にしてください。</p>
       </section>
     </div>
+  </div>
+</section>
+
+<section class="record-page" id="addPage" aria-label="ホーム画面に追加" hidden>
+  <div class="record-inner">
+    <div class="record-top"><h2>📱 ホーム画面に追加</h2><button class="round" id="addClose" type="button" aria-label="とじる">✕</button></div>
+    <div class="help-list">
+      <section class="help-card">
+        <p id="addSaveFirst" hidden><b>はじめに</b>、パネルの「💾 ファイルに保存」をしておいてください。iPhone ではホーム画面のアプリに記録が引きつがれないので、追加したあと「ファイルから戻す」で戻します。</p>
+        <ol class="add-steps" id="addStepsIphone">
+          <li>Safari の画面の下（または上）にある <b>共有ボタン</b>（□に↑のマーク）を押す<br><span class="help-small">見つからないときは「…」を押して、出てきた「<b>共有</b>」を押す</span></li>
+          <li>下へ進んで「<b>ホーム画面に追加</b>」を押す</li>
+          <li>右上の「<b>追加</b>」を押す</li>
+        </ol>
+        <ol class="add-steps" id="addStepsAndroid" hidden>
+          <li>画面の右上の「<b>︙</b>」を押す</li>
+          <li>「<b>ホーム画面に追加</b>」または「<b>アプリをインストール</b>」を押す</li>
+          <li>「<b>追加</b>」「<b>インストール</b>」を押す</li>
+        </ol>
+        <p class="help-small">ホーム画面の「おさんぽてくてく」のアイコンから、アプリのようにすぐ開けます。</p>
+      </section>
+    </div>
+    <div class="add-arrow" id="addArrow" aria-hidden="true">👇</div>
   </div>
 </section>
 
@@ -1037,6 +1067,7 @@
     } else {
       showNote('');
     }
+    updateShareButton();
   }
 
   // これまでに歩いた合計歩数（めやす）
@@ -1879,6 +1910,7 @@
     let list = walksOfDay(viewDay);
     if (only !== undefined) list = [list[only]];
     if (!list.length || !list[0]) return;
+    shareList = list; shareDay = viewDay; shareReady = null;
     closeWalkList();
     window.scrollTo({ top: 0, behavior: 'smooth' }); // 地図が見えるところまで上に戻る
     showView('map');
@@ -2011,6 +2043,7 @@
   }
   function setReplayUI(playing) {
     document.getElementById('mapStop').hidden = !playing;
+    updateShareButton();
     document.getElementById('speedPick').hidden = !playing;
     if (playing) document.getElementById('replayButton').textContent = '■ 再生をとめる';
     else if (!current) renderDay();
@@ -2035,6 +2068,12 @@
     if (walksOfDay(viewDay).length === 1) { replayDay(); return; }
     listEl.hidden = !listEl.hidden;
     document.getElementById('replayButton').setAttribute('aria-expanded', String(!listEl.hidden));
+    // 一覧（時間と歩数）が画面の下にかくれないよう、見えるところまで自動で下げる。再生ボタンは画面に残す
+    if (!listEl.hidden) {
+      const btnTop = document.getElementById('replayButton').getBoundingClientRect().top;
+      const over = listEl.getBoundingClientRect().bottom - window.innerHeight + 16;
+      if (over > 0) window.scrollBy({ top: Math.min(over, btnTop - 8), behavior: 'smooth' });
+    }
   });
   document.getElementById('mapStop').addEventListener('click', () => stopReplay());
   document.getElementById('speedPick').addEventListener('click', (e) => { const b = e.target.closest('button[data-speed]'); if (b) setReplaySpeed(b.dataset.speed); });
@@ -2135,6 +2174,33 @@
 
   // ===== ホーム画面に追加のおすすめ =====
   const HOME_TIP_KEY = 'aruku-home-tip';
+  // ホーム画面に追加するボタン。Android（Chrome）はその場で追加の画面を出せる。
+  // iPhone の Safari はサイトから追加できないので、手順を大きく見せる
+  const UA = navigator.userAgent;
+  const IS_IPHONE = /iPhone|iPad|iPod/.test(UA) || (/Macintosh/.test(UA) && navigator.maxTouchPoints > 1);
+  const IS_PHONE = IS_IPHONE || /Android/.test(UA);
+  const isStandalone = () => navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+  let installPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installPrompt = e; updateAddHome(); });
+  window.addEventListener('appinstalled', () => { installPrompt = null; document.getElementById('addHomeRow').hidden = true; document.getElementById('homeTip').hidden = true; });
+  function updateAddHome() {
+    document.getElementById('addHomeRow').hidden = DEMO || isStandalone() || !(IS_PHONE || installPrompt);
+  }
+  async function addToHome() {
+    if (installPrompt) {
+      const ev = installPrompt; installPrompt = null;
+      try { ev.prompt(); await ev.userChoice; } catch (e) {}
+      return;
+    }
+    document.getElementById('addSaveFirst').hidden = !(IS_IPHONE && walks.length);
+    document.getElementById('addStepsIphone').hidden = !IS_IPHONE;
+    document.getElementById('addStepsAndroid').hidden = IS_IPHONE;
+    document.getElementById('addArrow').textContent = IS_IPHONE ? '👇' : '';
+    const pg = document.getElementById('addPage'); pg.hidden = false; pg.scrollTop = 0;
+  }
+  document.getElementById('addHomeButton').addEventListener('click', addToHome);
+  document.getElementById('addClose').addEventListener('click', () => { document.getElementById('addPage').hidden = true; });
+
   function showHomeTip() {
     if (DEMO) return;
     try { if (localStorage.getItem(HOME_TIP_KEY)) return; } catch (e) { return; }
@@ -2151,8 +2217,8 @@
     document.getElementById('homeTipText').innerHTML = '';
     document.getElementById('homeTipText').append(text + ' ');
     const more = document.createElement('button');
-    more.type = 'button'; more.className = 'tip-more'; more.textContent = 'やり方を見る';
-    more.addEventListener('click', openHelp);
+    more.type = 'button'; more.className = 'tip-more'; more.textContent = standalone ? 'やり方を見る' : '追加する';
+    more.addEventListener('click', standalone ? openHelp : addToHome);
     document.getElementById('homeTipText').append(more);
     document.getElementById('homeTip').hidden = false;
   }
@@ -2168,12 +2234,19 @@
   function loadImg(src) {
     return new Promise((ok) => { const img = new Image(); img.onload = () => ok(img); img.onerror = () => ok(null); img.src = src; });
   }
+  // 再生した日の道で作る。再生していないときは出さない
+  let shareList = null, shareDay = 0;
+  function updateShareButton() {
+    const btn = document.getElementById('shareButton');
+    const show = !!shareList && shareDay === viewDay && !current;
+    btn.hidden = !show;
+    if (!show) { shareReady = null; btn.disabled = false; btn.textContent = '📤 みんなに見せる'; }
+  }
   function shareInfo() {
-    const today = startOfDay(Date.now());
-    const list = walksOfDay(today).concat(current ? [current] : []);
+    const list = shareList || [];
     const meters = list.reduce((s, w) => s + w.distance, 0);
     const total = totalSteps();
-    return { list, steps: Math.round(meters / STRIDE_M), total, stage: getStage(total) };
+    return { list, day: shareDay, steps: Math.round(meters / STRIDE_M), total, stage: getStage(total) };
   }
   // 今日の道を、動画の枠に収まる点の並びにする
   function routeLines(list, box) {
@@ -2215,7 +2288,7 @@
     if (walker) { const h = 190 * k, w = walker.width * h / walker.height; g.drawImage(walker, W - 90 * k - w, top + ph - h - 10 * k, w, h); }
     g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillStyle = '#24382a'; g.font = font(60); g.fillText('🚶 おさんぽてくてく', W / 2, 80 * k);
-    g.fillStyle = '#62775f'; g.font = font(38, 500); g.fillText(recordDate(Date.now()) + ' の おさんぽ', W / 2, 148 * k);
+    g.fillStyle = '#62775f'; g.font = font(38, 500); g.fillText(recordDate(info.day) + ' の おさんぽ', W / 2, 148 * k);
     g.fillStyle = '#3f8f4f'; g.font = font(96); g.fillText(info.steps.toLocaleString() + ' 歩', W / 2, top + ph + 100 * k);
     g.fillStyle = '#24382a'; g.font = font(44); g.fillText('Lv' + info.stage.level + '「' + info.stage.name + '」', W / 2, top + ph + 190 * k);
     g.fillStyle = '#62775f'; g.font = font(32, 500); g.fillText('これまで ' + info.total.toLocaleString() + ' 歩（めやす）', W / 2, top + ph + 255 * k);
@@ -2306,7 +2379,7 @@
   // できあがったらボタンを「送る」に変えて、もう一度押してもらう
   let shareReady = null;
   function shareText(info) {
-    return '今日は ' + info.steps.toLocaleString() + ' 歩 おさんぽしました🚶 わたしの世界は Lv' + info.stage.level + '「' + info.stage.name + '」 #おさんぽてくてく';
+    return (info.day === startOfDay(Date.now()) ? '今日は ' : recordDate(info.day) + 'は ') + info.steps.toLocaleString() + ' 歩 おさんぽしました🚶 わたしの世界は Lv' + info.stage.level + '「' + info.stage.name + '」 #おさんぽてくてく';
   }
   async function sendShare(file, text) {
     try {
@@ -2328,7 +2401,7 @@
     const btn = document.getElementById('shareButton');
     if (shareReady) {
       const ready = shareReady; shareReady = null;
-      btn.textContent = '📤 成長をみんなに見せる';
+      btn.textContent = '📤 みんなに見せる';
       if (!(await sendShare(ready.file, ready.text))) { showNote('うまく送れませんでした。'); setTimeout(() => showNote(''), 4000); }
       return;
     }
@@ -2356,6 +2429,7 @@
   }
   renderDay();
   keepLastText();
+  updateAddHome();
   showHomeTip();
   if (current) { showNote('記録の続きから再開しました'); setTimeout(() => showNote(''), 4000); }
   else checkForm(); // しばらく歩いていなかったら、ここで象人間になる
