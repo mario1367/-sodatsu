@@ -2369,18 +2369,28 @@
     for (const [k, im] of img) { try { probe.drawImage(im, 0, 0); probe.getImageData(0, 0, 1, 1); } catch (e) { img.delete(k); } break; }
     const look = WALKER_LOOKS[form] || WALKER_LOOKS.normal;
     const godsList = shrine.flowers.filter((f) => f.bloomAt).sort((a, b) => b.bloomAt - a.bloomAt);
-    const [walkerImg, catImg, ...godImgs] = await Promise.all([loadImg(look.src),
+    const turns = form !== 'normal' && !!WALKER_LOOKS[form];
+    const [walkerImg, catImg, poseImgs, ...godImgs] = await Promise.all([loadImg(look.src),
       shrine.points >= CAT_POINTS ? loadImg('chars/cat_sit.png') : null,
+      turns ? [] : Promise.all(WALKER_POSES.map(loadImg)),
       ...godsList.map((f) => loadImg('chars/shrine/' + SHRINE_CHARS[f.char].img + '.png'))]);
     // 世界ピクセルは大きすぎて線が描けないことがあるので、最初の点からの位置にする
     const O = worldPx(pts[0], Z);
     const local = (ll) => { const q = worldPx(ll, Z); return [q[0] - O[0], q[1] - O[1]]; };
     const P = pts.map(local);
     const mPerPx = 156543 * Math.cos(pts[0][0] * Math.PI / 180) / n;
-    const put = (g, im, ll, w, h, flip) => {
+    // アプリの再生と同じ動き（CSS の step・turn）を時刻 t から作る
+    const stepAt = (t, period, up, deg) => { const a = Math.sin(2 * Math.PI * (t % period) / period); return { y: -up * Math.abs(a), rot: -deg * a * Math.PI / 180, sx: 1 }; };
+    const turnAt = (t) => { // 右を向いたり左を向いたりしながら歩く（1.1秒で1回り）
+      const p = (t % 1100) / 1100, half = p < 0.5 ? p : p - 0.5, b = half < 0.42 ? Math.sin(Math.PI * half / 0.42) : 0;
+      return { y: -3 * b, rot: -4 * b * Math.PI / 180, sx: p >= 0.46 && p < 0.96 ? -1 : 1 };
+    };
+    const put = (g, im, ll, w, h, flip, m) => {
       if (!im) return;
       const q = local(ll);
-      g.save(); g.translate(q[0], q[1]); if (flip) g.scale(-1, 1); g.drawImage(im, -w / 2, -h + 2, w, h); g.restore();
+      g.save(); g.translate(q[0], q[1]); if (flip) g.scale(-1, 1);
+      if (m) { g.translate(0, 2 + m.y); g.rotate(m.rot); g.scale(m.sx, 1); g.translate(0, -2); }
+      g.drawImage(im, -w / 2, -h + 2, w, h); g.restore();
     };
     const draw = (g, t) => {
       const d = startM + Math.min(clipM, t / ms * clipM);
@@ -2409,9 +2419,13 @@
       g.strokeStyle = '#e53935'; g.lineWidth = 6; path(true);
       // ついてくる仲間（うしろから順に描く）
       const gap = GOD_GAP_PX * mPerPx;
-      godImgs.forEach((im, k) => { const back = d - (catImg ? CAT_GAP_M : 0) - gap * (k + 1); if (back > 0) { const p = posAt(back); put(g, im, p.ll, 36, 40, false); } });
-      if (catImg && d > CAT_GAP_M) put(g, catImg, posAt(d - CAT_GAP_M).ll, 34, 28, false);
-      put(g, walkerImg, here.ll, look.w, look.h, here.west);
+      godImgs.forEach((im, k) => { const back = d - (catImg ? CAT_GAP_M : 0) - gap * (k + 1); if (back > 0) { const p = posAt(back); put(g, im, p.ll, 36, 40, false, stepAt(t + k * 90, 420, 2, 2)); } });
+      if (catImg && d > CAT_GAP_M) put(g, catImg, posAt(d - CAT_GAP_M).ll, 34, 28, false, stepAt(t, 420, 2, 2));
+      // ふつうのすがたは、ときどき走ったりピースしたりする（12秒ごとに2.5秒）
+      const pose = !turns && t % 12000 >= 6000 && t % 12000 < 8500 ? poseImgs[Math.floor(t / 12000) % poseImgs.length] : null;
+      g.save(); g.shadowColor = 'rgba(0,0,0,0.3)'; g.shadowBlur = 3; g.shadowOffsetY = 3;
+      put(g, pose || walkerImg, here.ll, look.w, look.h, here.west, turns ? turnAt(t) : stepAt(t, 500, 2, 2));
+      g.restore();
       g.setTransform(1, 0, 0, 1, 0, 0);
       // 地図のクレジット
       g.textBaseline = 'middle';
