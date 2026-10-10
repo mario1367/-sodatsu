@@ -622,7 +622,7 @@
       </section>
       <section class="help-card">
         <h3>📤 みんなに見せる</h3>
-        <p>「▶ この日の道を再生」を押すと、地図の下に「📤 見せる」ボタンが出ます。押すと、その日の道が地図の上をのびていく短い動画ができます（再生の速さ「ゆっくり・ふつう・はやい」に合わせた速さになります）。「📤 送る！」に変わったらもう一度押して、LINE などで送れます。</p>
+        <p>「▶ この日の道を再生」を押すと、地図の下に「📤 見せる」ボタンが出ます。押すと、再生と同じように、地図の上を歩いていく動画ができます（再生の速さ「ゆっくり・ふつう・はやい」と同じ速さ、長くても1分）。「📤 送る！」に変わったらもう一度押して、LINE などで送れます。</p>
         <p class="help-small">動画には地図と歩いた道がのります。家の近くが写ることもあるので、送る相手に気をつけてください。</p>
       </section>
       <section class="help-card important">
@@ -2259,8 +2259,6 @@
   // ===== 成長をみんなに見せる（再生した日の道が地図の上をのびていく短い動画。作れないスマホでは画像） =====
   const APP_URL = 'https://mario1367.github.io/-sodatsu/';
   const SHARE_W = 720, SHARE_H = 720;
-  // 道がのびていく時間。再生の速さ（ゆっくり・ふつう・はやい）に合わせる
-  const SHARE_ROUTE_MS = { slow: 15000, normal: 9000, fast: 5000 };
   function loadImg(src) {
     return new Promise((ok) => { const img = new Image(); img.onload = () => ok(img); img.onerror = () => ok(null); img.src = src; });
   }
@@ -2286,53 +2284,109 @@
     const n = 256 * Math.pow(2, z), s = Math.sin(p[0] * Math.PI / 180);
     return [(p[1] + 180) / 360 * n, (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * n];
   }
-  // 道が枠に収まるいちばん近いズームを選び、動画の上の点にする（view に地図の位置を覚える）
-  function routeLines(list, box) {
-    const segs = list.flatMap(segmentsOf);
-    const pts = segs.flat();
-    if (pts.length < 2) return [];
-    let z = 18;
-    for (; z > 3; z--) {
-      const all = pts.map((p) => worldPx(p, z));
-      const w = Math.max(...all.map((q) => q[0])) - Math.min(...all.map((q) => q[0]));
-      const h = Math.max(...all.map((q) => q[1])) - Math.min(...all.map((q) => q[1]));
-      if (w <= box.w && h <= box.h) break;
-    }
-    const all = pts.map((p) => worldPx(p, z));
-    const minX = Math.min(...all.map((q) => q[0])), maxX = Math.max(...all.map((q) => q[0]));
-    const minY = Math.min(...all.map((q) => q[1])), maxY = Math.max(...all.map((q) => q[1]));
-    const ox = (minX + maxX) / 2 - (box.x + box.w / 2), oy = (minY + maxY) / 2 - (box.y + box.h / 2);
-    const lines = segs.map((seg) => seg.map((p) => { const q = worldPx(p, z); return [q[0] - ox, q[1] - oy]; }));
-    lines.view = { z, ox, oy };
-    return lines;
-  }
-  // 動画の後ろに出す地図（OpenStreetMap のタイル）。読めなかったタイルは方眼のまま
-  async function loadShareMap(view) {
-    if (!view) return null;
-    const cv = document.createElement('canvas'); cv.width = SHARE_W; cv.height = SHARE_H;
-    const g = cv.getContext('2d');
-    g.fillStyle = '#eef5e9'; g.fillRect(0, 0, SHARE_W, SHARE_H);
-    const n = Math.pow(2, view.z), jobs = [];
-    for (let tx = Math.floor(view.ox / 256); tx * 256 < view.ox + SHARE_W; tx++) {
-      for (let ty = Math.floor(view.oy / 256); ty * 256 < view.oy + SHARE_H; ty++) {
-        if (ty < 0 || ty >= n) continue;
-        jobs.push(new Promise((ok) => {
-          const img = new Image();
-          img.crossOrigin = 'anonymous';
-          const timer = setTimeout(() => ok(), 8000);
-          img.onload = () => { clearTimeout(timer); g.drawImage(img, tx * 256 - view.ox, ty * 256 - view.oy); ok(); };
-          img.onerror = () => { clearTimeout(timer); ok(); };
-          img.src = 'https://tile.openstreetmap.org/' + view.z + '/' + (((tx % n) + n) % n) + '/' + ty + '.png';
-        }));
+  // 再生の画面と同じ見せ方：地図に寄って、人を真ん中にして追いかける。速さも再生と同じ
+  async function prepareFollow(info) {
+    const kept = info.list.map((w) => w.points.filter((p) => p[3] !== 3));
+    const pts = [], breaks = new Set();
+    for (const list of kept) list.forEach((p, i) => { if (i === 0 || p[3]) breaks.add(pts.length); pts.push([p[0], p[1]]); });
+    if (pts.length < 2) return null;
+    const cum = [0];
+    for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + (breaks.has(i) ? 0 : distanceM(pts[i - 1], pts[i])));
+    const meters = cum[cum.length - 1];
+    if (!meters) return null;
+    // 再生と同じ長さ（18〜120秒 × 速さ）。SNS 向けに 60秒までにおさめる
+    const ms = Math.min(60000, Math.min(120000, Math.max(18000, meters / 15 * 1000)) / (REPLAY_SPEEDS[replaySpeed] || 1));
+    const W = SHARE_W, H = SHARE_H;
+    const posAt = (d) => {
+      let i = 1;
+      while (i < pts.length - 1 && cum[i] < d) i++;
+      const seg = cum[i] - cum[i - 1], f = seg > 0 ? Math.min(1, Math.max(0, (d - cum[i - 1]) / seg)) : 1;
+      return { i, f, ll: [pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * f, pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * f], west: pts[i][1] < pts[i - 1][1] };
+    };
+    // 使うタイルを先に集める（多すぎるときは1段遠くする）
+    let Z = REPLAY_ZOOM, SCALE = 1.6, tiles = null;
+    for (; Z >= 15; Z--) {
+      const need = new Set();
+      const half = [W / 2 / SCALE, H / 2 / SCALE];
+      const step = Math.max(1, meters / 400);
+      for (let d = 0; d <= meters + step; d += step) {
+        const c = worldPx(posAt(Math.min(d, meters)).ll, Z);
+        for (let tx = Math.floor((c[0] - half[0]) / 256); tx <= Math.floor((c[0] + half[0]) / 256); tx++)
+          for (let ty = Math.floor((c[1] - half[1]) / 256); ty <= Math.floor((c[1] + half[1]) / 256); ty++) need.add(tx + ',' + ty);
       }
+      if (need.size <= 400) { tiles = need; break; }
     }
-    await Promise.all(jobs);
-    try { g.getImageData(0, 0, 1, 1); } catch (e) { return null; } // 動画にできない地図は使わない
-    g.fillStyle = 'rgba(255,255,255,0.18)'; g.fillRect(0, 0, SHARE_W, SHARE_H);
-    g.fillStyle = 'rgba(255,255,255,0.8)'; g.fillRect(SHARE_W - 150, SHARE_H - 22, 150, 22);
-    g.fillStyle = '#555'; g.font = '13px sans-serif'; g.textAlign = 'right'; g.textBaseline = 'middle';
-    g.fillText('© OpenStreetMap', SHARE_W - 8, SHARE_H - 11);
-    return cv;
+    if (!tiles) return null;
+    const n = Math.pow(2, Z), img = new Map();
+    await Promise.all([...tiles].map((key) => new Promise((ok) => {
+      const [tx, ty] = key.split(',').map(Number);
+      if (ty < 0 || ty >= n) return ok();
+      const im = new Image(); im.crossOrigin = 'anonymous';
+      const timer = setTimeout(ok, 10000);
+      im.onload = () => { clearTimeout(timer); img.set(key, im); ok(); };
+      im.onerror = () => { clearTimeout(timer); ok(); };
+      im.src = 'https://tile.openstreetmap.org/' + Z + '/' + (((tx % n) + n) % n) + '/' + ty + '.png';
+    })));
+    // 地図が読めても動画にできない（よそのサイトの絵あつかい）ときは、地図なしにする
+    const probe = document.createElement('canvas').getContext('2d');
+    for (const [k, im] of img) { try { probe.drawImage(im, 0, 0); probe.getImageData(0, 0, 1, 1); } catch (e) { img.delete(k); } break; }
+    const look = WALKER_LOOKS[form] || WALKER_LOOKS.normal;
+    const godsList = shrine.flowers.filter((f) => f.bloomAt).sort((a, b) => b.bloomAt - a.bloomAt);
+    const [walkerImg, catImg, ...godImgs] = await Promise.all([loadImg(look.src),
+      shrine.points >= CAT_POINTS ? loadImg('chars/cat_sit.png') : null,
+      ...godsList.map((f) => loadImg('chars/shrine/' + SHRINE_CHARS[f.char].img + '.png'))]);
+    // 世界ピクセルは大きすぎて線が描けないことがあるので、最初の点からの位置にする
+    const O = worldPx(pts[0], Z);
+    const local = (ll) => { const q = worldPx(ll, Z); return [q[0] - O[0], q[1] - O[1]]; };
+    const P = pts.map(local);
+    const mPerPx = 156543 * Math.cos(pts[0][0] * Math.PI / 180) / n;
+    const font = '700 46px "Zen Maru Gothic", "Hiragino Maru Gothic ProN", sans-serif';
+    const put = (g, im, ll, w, h, flip) => {
+      if (!im) return;
+      const q = local(ll);
+      g.save(); g.translate(q[0], q[1]); if (flip) g.scale(-1, 1); g.drawImage(im, -w / 2, -h + 2, w, h); g.restore();
+    };
+    const draw = (g, t) => {
+      const d = Math.min(meters, t / ms * meters);
+      const here = posAt(d), cw = worldPx(here.ll, Z), c = [cw[0] - O[0], cw[1] - O[1]];
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.fillStyle = '#eef0e9'; g.fillRect(0, 0, W, H);
+      g.setTransform(SCALE, 0, 0, SCALE, W / 2 - c[0] * SCALE, H / 2 - c[1] * SCALE);
+      const half = [W / 2 / SCALE, H / 2 / SCALE];
+      for (let tx = Math.floor((cw[0] - half[0]) / 256); tx <= Math.floor((cw[0] + half[0]) / 256); tx++)
+        for (let ty = Math.floor((cw[1] - half[1]) / 256); ty <= Math.floor((cw[1] + half[1]) / 256); ty++) {
+          const im = img.get(tx + ',' + ty);
+          if (im) g.drawImage(im, tx * 256 - O[0], ty * 256 - O[1], 256, 257);
+        }
+      // これから通る道（うすい線）と、通った道（赤い線）
+      const path = (upto) => {
+        g.beginPath();
+        for (let i = 0; i < P.length; i++) {
+          if (upto !== undefined && i >= here.i) break;
+          if (i === 0 || breaks.has(i)) g.moveTo(P[i][0], P[i][1]); else g.lineTo(P[i][0], P[i][1]);
+        }
+        if (upto !== undefined && !breaks.has(here.i)) g.lineTo(c[0], c[1]);
+        g.stroke();
+      };
+      g.lineCap = 'round'; g.lineJoin = 'round';
+      g.strokeStyle = 'rgba(243,178,174,0.6)'; g.lineWidth = 6; path();
+      g.strokeStyle = '#e53935'; g.lineWidth = 6; path(true);
+      // ついてくる仲間（うしろから順に描く）
+      const gap = GOD_GAP_PX * mPerPx;
+      godImgs.forEach((im, k) => { const back = d - (catImg ? CAT_GAP_M : 0) - gap * (k + 1); if (back > 0) { const p = posAt(back); put(g, im, p.ll, 36, 40, false); } });
+      if (catImg && d > CAT_GAP_M) put(g, catImg, posAt(d - CAT_GAP_M).ll, 34, 28, false);
+      put(g, walkerImg, here.ll, look.w, look.h, here.west);
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      // 歩数と地図のクレジット
+      g.fillStyle = 'rgba(255,255,255,0.9)'; g.beginPath(); g.roundRect(W / 2 - 170, 24, 340, 76, 38); g.fill();
+      g.fillStyle = '#3f8f4f'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = font;
+      g.fillText(Math.round(info.steps * d / meters).toLocaleString() + ' 歩', W / 2, 63);
+      if (img.size) {
+        g.fillStyle = 'rgba(255,255,255,0.8)'; g.fillRect(W - 150, H - 22, 150, 22);
+        g.fillStyle = '#555'; g.font = '13px sans-serif'; g.textAlign = 'right'; g.fillText('© OpenStreetMap', W - 8, H - 11);
+      }
+    };
+    return { ms: ms + 600, draw };
   }
   // できあがりの1枚（歩数・レベル・世界の絵）
   function drawShareCard(g, info, pic, walker, alpha) {
@@ -2366,39 +2420,6 @@
     g.fillStyle = '#62775f'; g.font = font(32, 500); g.fillText('これまで ' + info.total.toLocaleString() + ' 歩（めやす）', W / 2, top + ph + 255 * k);
     g.restore();
   }
-  // 道がのびていく場面（t: 0〜1）
-  function drawShareRoute(g, info, lines, walker, t, map) {
-    const W = SHARE_W, H = SHARE_H;
-    if (map) g.drawImage(map, 0, 0);
-    else {
-      g.fillStyle = '#eef5e9'; g.fillRect(0, 0, W, H);
-      g.strokeStyle = '#dde9d6'; g.lineWidth = 1;
-      for (let x = 0; x <= W; x += 40) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); }
-      for (let y = 0; y <= H; y += 40) { g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
-    }
-    const total = lines.reduce((s, l) => s + l.length - 1, 0);
-    let left = t * total, head = null, dir = 1;
-    g.strokeStyle = '#e53935'; g.lineWidth = 9; g.lineCap = 'round'; g.lineJoin = 'round';
-    for (const l of lines) {
-      if (left <= 0) break;
-      g.beginPath(); g.moveTo(l[0][0], l[0][1]); head = l[0];
-      for (let i = 1; i < l.length && left > 0; i++) {
-        const f = Math.min(1, left);
-        const p = [l[i - 1][0] + (l[i][0] - l[i - 1][0]) * f, l[i - 1][1] + (l[i][1] - l[i - 1][1]) * f];
-        if (l[i][0] !== l[i - 1][0]) dir = l[i][0] > l[i - 1][0] ? 1 : -1;
-        g.lineTo(p[0], p[1]); head = p; left -= 1;
-      }
-      g.stroke();
-    }
-    if (walker && head) {
-      const h = 90, w = walker.width * h / walker.height;
-      g.save(); g.translate(head[0], head[1] - h + 8); if (dir < 0) { g.scale(-1, 1); } g.drawImage(walker, -w / 2, 0, w, h); g.restore();
-    }
-    g.fillStyle = 'rgba(255,255,255,0.88)'; g.beginPath(); g.roundRect(W / 2 - 170, 24, 340, 76, 38); g.fill();
-    g.fillStyle = '#3f8f4f'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.font = '700 46px "Zen Maru Gothic", "Hiragino Maru Gothic ProN", sans-serif';
-    g.fillText(Math.round(info.steps * t).toLocaleString() + ' 歩', W / 2, 63);
-  }
   function videoType() {
     if (!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) return '';
     for (const type of ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm']) {
@@ -2428,15 +2449,14 @@
     enc.configure(config);
     const cv = document.createElement('canvas'); cv.width = SHARE_W; cv.height = SHARE_H;
     const g = cv.getContext('2d');
-    const lines = routeLines(info.list, { x: 70, y: 215, w: SHARE_W - 140, h: SHARE_H - 265 });
-    const map = await loadShareMap(lines.view);
-    const ROUTE = lines.length ? (SHARE_ROUTE_MS[replaySpeed] || SHARE_ROUTE_MS.normal) : 0, FADE = 700, END = 2500;
+    const scene = await prepareFollow(info);
+    const ROUTE = scene ? scene.ms : 0, FADE = 700, END = 2500;
     const frames = Math.round((ROUTE + FADE + END) / 1000 * FPS);
     for (let i = 0; i < frames && !failed; i++) {
       const ms = i * 1000 / FPS;
-      if (ms < ROUTE) drawShareRoute(g, info, lines, walker, Math.min(1, ms / (ROUTE - 500)), map);
+      if (ms < ROUTE) scene.draw(g, ms);
       else {
-        if (lines.length) drawShareRoute(g, info, lines, walker, 1, map);
+        if (scene) scene.draw(g, ROUTE);
         drawShareCard(g, info, pic, walker, Math.min(1, (ms - ROUTE) / FADE));
       }
       const frame = new VideoFrame(cv, { timestamp: Math.round(i * 1e6 / FPS), duration: Math.round(1e6 / FPS) });
@@ -2458,18 +2478,17 @@
     if (!type) return null;
     const cv = document.createElement('canvas'); cv.width = SHARE_W; cv.height = SHARE_H;
     const g = cv.getContext('2d');
-    const lines = routeLines(info.list, { x: 70, y: 215, w: SHARE_W - 140, h: SHARE_H - 265 });
-    const map = await loadShareMap(lines.view);
-    const ROUTE = lines.length ? (SHARE_ROUTE_MS[replaySpeed] || SHARE_ROUTE_MS.normal) : 0, FADE = 700, END = 2500;
+    const scene = await prepareFollow(info);
+    const ROUTE = scene ? scene.ms : 0, FADE = 700, END = 2500;
     const stream = cv.captureStream(30);
     const rec = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 2500000 });
     const chunks = [];
     rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
     const stopped = new Promise((ok) => { rec.onstop = ok; });
     const draw = (ms) => {
-      if (ms < ROUTE) drawShareRoute(g, info, lines, walker, Math.min(1, ms / (ROUTE - 500)), map);
+      if (ms < ROUTE) scene.draw(g, ms);
       else {
-        if (lines.length) drawShareRoute(g, info, lines, walker, 1, map);
+        if (scene) scene.draw(g, ROUTE);
         drawShareCard(g, info, pic, walker, Math.min(1, (ms - ROUTE) / FADE));
       }
     };
