@@ -3,22 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>おさんぽてくてく</title>
+<title>おさんぽの国 ～あるくたびに、ちいさなしあわせ～</title>
 <!-- LINE などにアドレスを貼ったときに出る紹介 -->
-<meta name="description" content="歩いた道が地図に赤い線で残り、女の子がてくてく道をたどって再生します。歩いた分だけ「成長の森」が育つ、登録なし・無料の散歩アプリです。">
+<meta name="description" content="あるくたびに、ちいさなしあわせ。歩いた道が地図に赤い線で残り、女の子がてくてく道をたどって再生します。歩いた分だけ「成長の森」が育つ、登録なし・無料の散歩アプリです。">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://mario1367.github.io/-sodatsu/">
-<meta property="og:title" content="おさんぽてくてく">
-<meta property="og:description" content="歩いた道が地図に赤い線で残り、女の子がてくてく道をたどって再生します。歩いた分だけ「成長の森」が育つ、登録なし・無料の散歩アプリです。">
+<meta property="og:title" content="おさんぽの国 ～あるくたびに、ちいさなしあわせ～">
+<meta property="og:description" content="あるくたびに、ちいさなしあわせ。歩いた道が地図に赤い線で残り、女の子がてくてく道をたどって再生します。歩いた分だけ「成長の森」が育つ、登録なし・無料の散歩アプリです。">
 <meta property="og:image" content="https://mario1367.github.io/-sodatsu/icon-512.png?v=2">
-<meta property="og:site_name" content="おさんぽてくてく">
+<meta property="og:site_name" content="おさんぽの国">
 <meta name="twitter:card" content="summary">
 <!-- ホーム画面に追加したときのアイコンと名前 -->
 <link rel="manifest" href="manifest.webmanifest?v=2">
 <link rel="icon" href="icon-192.png?v=2" type="image/png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png?v=2">
 <meta name="theme-color" content="#3f8f4f">
-<meta name="apple-mobile-web-app-title" content="おさんぽてくてく">
+<meta name="apple-mobile-web-app-title" content="おさんぽの国">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <script>
@@ -582,7 +582,7 @@
 <section class="record-page" id="helpPage" aria-label="つかいかた" hidden>
   <div class="record-inner">
     <div class="record-top"><h2>つかいかた</h2><button class="round" id="helpClose" type="button" aria-label="とじる">✕</button></div>
-    <p class="record-lead">おさんぽてくてくは、歩いた道を地図に残し、歩いた分だけ世界が育っていくアプリです。</p>
+    <p class="record-lead">おさんぽの国 ～あるくたびに、ちいさなしあわせ～<br>歩いた道を地図に残し、歩いた分だけ世界が育っていくアプリです。</p>
     <div class="help-list">
       <section class="help-card">
         <h3>📱 ホーム画面に追加すると便利</h3>
@@ -688,7 +688,7 @@
         </ol>
         <p id="addInApp" hidden><b>いまは LINE などのアプリの中で開いています。</b>ここからはホーム画面に追加できないので、右上（または右下）のメニューから「<b>ブラウザで開く</b>」「<b>Chrome で開く</b>」を押して、開いたページでもう一度「📱 ホーム画面に追加する」を押してください。</p>
         <p id="addRetry" hidden>Chrome では、ページを少し使ってからもう一度ボタンを押すと、すぐに追加の画面が出ることがあります。</p>
-        <p>ホーム画面の「おさんぽてくてく」のアイコンから、アプリのようにすぐ開けます。</p>
+        <p>ホーム画面の「おさんぽの国」のアイコンから、アプリのようにすぐ開けます。</p>
       </section>
     </div>
     <div class="add-arrow" id="addArrow" aria-hidden="true">👇</div>
@@ -2188,7 +2188,7 @@
     try {
       const file = new File([text], name, { type: 'application/json' });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: 'おさんぽてくてく の記録' });
+        await navigator.share({ files: [file], title: 'おさんぽの国 の記録' });
         done();
         return;
       }
@@ -2211,7 +2211,7 @@
       let box = null;
       try { box = JSON.parse(reader.result); } catch (e) {}
       const data = box && box.app === 'osanpo-tekuteku' && box.data;
-      if (!data || !Array.isArray(data.walks)) { alert('このファイルは おさんぽてくてく の記録ではないようです。'); return; }
+      if (!data || !Array.isArray(data.walks)) { alert('このファイルは おさんぽの国 の記録ではないようです。'); return; }
       const steps = Math.round(data.walks.reduce((s, w) => s + (w.distance || 0), 0) / STRIDE_M);
       const msg = recordDate(box.savedAt) + ' に保存した記録（' + data.walks.length + '回の散歩・約' + steps.toLocaleString() + '歩）に戻します。' +
         (walks.length ? '\nいまこのスマホにある記録は、ファイルの記録に置きかわります。' : '') + '\nよろしいですか？';
@@ -2447,7 +2447,7 @@
       }
       g.fillStyle = 'rgba(63,143,79,0.92)'; g.beginPath(); g.roundRect(10, H - 50, 210, 38, 19); g.fill();
       g.fillStyle = '#ffffff'; g.font = '700 20px "Zen Maru Gothic", "Hiragino Maru Gothic ProN", sans-serif'; g.textAlign = 'center';
-      g.fillText('🚶 おさんぽてくてく', 115, H - 31);
+      g.fillText('🚶 おさんぽの国', 115, H - 31);
     };
     return { ms: ms + 600, draw };
   }
@@ -2476,7 +2476,7 @@
     g.restore();
     if (walker) { const h = 190 * k, w = walker.width * h / walker.height; g.drawImage(walker, W - 90 * k - w, top + ph - h - 10 * k, w, h); }
     g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillStyle = '#24382a'; g.font = font(60); g.fillText('🚶 おさんぽてくてく', W / 2, 80 * k);
+    g.fillStyle = '#24382a'; g.font = font(60); g.fillText('🚶 おさんぽの国', W / 2, 80 * k);
     g.fillStyle = '#62775f'; g.font = font(38, 500); g.fillText(recordDate(info.day) + ' の おさんぽ', W / 2, 148 * k);
     g.fillStyle = '#3f8f4f'; g.font = font(96); g.fillText(info.steps.toLocaleString() + ' 歩', W / 2, top + ph + 90 * k);
     g.fillStyle = '#24382a'; g.font = font(44); g.fillText('Lv' + info.stage.level + '「' + info.stage.name + '」', W / 2, top + ph + 170 * k);
@@ -2484,7 +2484,7 @@
     // アプリへの案内（文が届かない SNS でも、動画を見た人がたどり着けるように）
     g.fillStyle = '#3f8f4f'; g.beginPath(); g.roundRect(70 * k, 950 * k, W - 140 * k, 105 * k, 52 * k); g.fill();
     g.fillStyle = '#ffffff'; g.font = font(34);
-    g.fillText('無料・登録なし「おさんぽてくてく」', W / 2, 982 * k);
+    g.fillText('無料・登録なし「おさんぽの国」', W / 2, 982 * k);
     g.font = font(30, 500); g.fillText('mario1367.github.io/-sodatsu', W / 2, 1027 * k);
     g.restore();
   }
@@ -2589,7 +2589,7 @@
   // 動画を作るのに数秒かかり、その間に「押した」扱いが切れて送れなくなるので、
   // できあがったらボタンを「送る」に変えて、もう一度押してもらう
   function shareText(info) {
-    return (info.day === startOfDay(Date.now()) ? '今日は ' : recordDate(info.day) + 'は ') + info.steps.toLocaleString() + ' 歩 おさんぽしました🚶 わたしの世界は Lv' + info.stage.level + '「' + info.stage.name + '」\n無料・登録なしのお散歩アプリ「おさんぽてくてく」はこちら👇 #おさんぽてくてく';
+    return (info.day === startOfDay(Date.now()) ? '今日は ' : recordDate(info.day) + 'は ') + info.steps.toLocaleString() + ' 歩 おさんぽしました🚶 わたしの世界は Lv' + info.stage.level + '「' + info.stage.name + '」\n無料・登録なしのお散歩アプリ「おさんぽの国 ～あるくたびに、ちいさなしあわせ～」はこちら👇 #おさんぽの国';
   }
   async function sendShare(file, text) {
     try {
