@@ -420,6 +420,19 @@
     border: 2px solid var(--path); background: transparent; color: var(--ink);
     font-family: var(--font); font-weight: 700; font-size: 1rem; cursor: pointer;
   }
+  .share-button { border-color: var(--go); }
+  /* ホーム画面に追加のおすすめ・記録の引っこしのお知らせ */
+  .home-tip { margin: 0; padding: 10px 12px; border-radius: 14px; background: #e6f3e2; color: #24382a; font-size: 0.92rem; font-weight: 700; line-height: 1.6; display: flex; gap: 8px; align-items: flex-start; }
+  .home-tip span { flex: 1; }
+  .home-tip button { border: none; background: transparent; color: inherit; font-family: var(--font); font-weight: 700; cursor: pointer; padding: 2px 4px; }
+  .home-tip .tip-more { text-decoration: underline; padding: 0; font-size: inherit; }
+  .home-tip .tip-close { font-size: 1.1rem; }
+  /* 記録の保存（バックアップ） */
+  .keep { border: 2px solid var(--track); border-radius: 18px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+  .keep-head { font-size: 0.95rem; font-weight: 700; }
+  .keep p { margin: 0; font-size: 0.85rem; color: var(--ink-soft); line-height: 1.6; }
+  .keep .sub-button { border-color: var(--go); padding: 10px; font-size: 0.95rem; }
+  .keep-last { font-variant-numeric: tabular-nums; }
   .sub-button:disabled { border-color: var(--track); color: var(--ink-soft); cursor: default; }
   .walks { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
   .walks li {
@@ -471,6 +484,7 @@
 
   <section class="panel">
     <p class="demo-bar" id="demoBar" hidden>🔍 サンプル表示中です（記録は保存されません）<a href="./">ふつうの画面へ</a></p>
+    <p class="home-tip" id="homeTip" hidden><span id="homeTipText"></span><button class="tip-close" id="homeTipClose" type="button" aria-label="とじる">✕</button></p>
     <p class="live" id="liveText" hidden>記録中</p>
     <button class="main-button" id="mainButton" type="button">🚶 歩きはじめる</button>
     <div class="day-nav">
@@ -504,6 +518,21 @@
       <p class="shrine-text" id="shrineText"></p>
     </div>
 
+    <div class="sub-row">
+      <button class="sub-button share-button" id="shareButton" type="button">📤 成長をみんなに見せる</button>
+    </div>
+
+    <div class="keep" id="keep">
+      <div class="keep-head">💾 記録のバックアップ</div>
+      <p>🔒 歩いた道や歩数は、このスマホの中だけに保存されていて、どこにも送られません。そのぶん、機種変更などで消えないように、ときどきファイルに保存しておくと安心です。</p>
+      <div class="sub-row">
+        <button class="sub-button" id="exportButton" type="button">ファイルに保存</button>
+        <button class="sub-button" id="importButton" type="button">ファイルから戻す</button>
+      </div>
+      <p class="keep-last" id="keepLast"></p>
+      <input type="file" id="importFile" accept=".json,application/json,text/plain" hidden>
+    </div>
+
     <p class="hint"><button class="text-button" id="helpLink" type="button">❓ つかいかたを見る</button></p>
     <p class="hint" id="hint">歩いている間は、このページを開いたまま画面をつけておくのがいちばん確実です。画面が消えたり、ほかのアプリを使ったりして記録が止まっても、このページに戻れば、止まっていた間に歩いた分もまっすぐの距離で数えて、続きから記録します。</p>
   </section>
@@ -521,7 +550,8 @@
           <li>下の 共有ボタン（□に↑のマーク）を押す</li>
           <li>「ホーム画面に追加」を押す</li>
         </ol>
-        <p class="help-small">ホーム画面のアイコンから、アプリのようにすぐ開けます。</p>
+        <p class="help-small">ホーム画面のアイコンから、アプリのようにすぐ開けます。iPhone では、ホーム画面に追加しないまま しばらく開かないと、記録が消えてしまうことがあります。</p>
+        <p class="help-small">iPhone では、Safari とホーム画面のアプリで記録が別々になります。Safari で歩いた記録があるときは、先に「💾 ファイルに保存」をしてから追加し、ホーム画面のアプリで「ファイルから戻す」を押してください。</p>
       </section>
       <section class="help-card">
         <h3>🚶 歩きかた</h3>
@@ -557,6 +587,20 @@
         <h3>✨ レベル11から：神々の野</h3>
         <p>森が育ちきると、レベル11で「神々の野」がはじまります。集めた神さまたちが野原に集まり、歩くたびに世界の絵が少しずつ変わっていきます。</p>
         <p>新しい神さまたちも出会いを待っています。どんな世界になるかは、歩いてのおたのしみです。</p>
+      </section>
+      <section class="help-card">
+        <h3>💾 記録の保存と引っこし</h3>
+        <p>🔒 歩いた道や歩数は、このスマホの中だけに保存されていて、どこにも送られません。</p>
+        <ol>
+          <li>画面の下の「💾 記録のバックアップ」で「<b>ファイルに保存</b>」を押す</li>
+          <li>出てきた画面で「ファイルに保存」などをえらぶ（LINE で自分に送っても大丈夫）</li>
+          <li>新しいスマホやホーム画面のアプリで「<b>ファイルから戻す</b>」を押し、そのファイルをえらぶ</li>
+        </ol>
+        <p class="help-small">機種変更や、ブラウザの「履歴とデータを消去」をすると記録が消えます。ときどき保存しておくと安心です。</p>
+      </section>
+      <section class="help-card">
+        <h3>📤 みんなに見せる</h3>
+        <p>「📤 成長をみんなに見せる」を押すと、今日の道がのびていく短い動画ができます。できたらもう一度押して、LINE などで送れます。動画にのるのは道の形と歩数と世界の絵だけで、地図や場所の名前はのりません。</p>
       </section>
       <section class="help-card important">
         <h3>📍 位置情報の設定（iPhone）</h3>
@@ -2019,6 +2063,290 @@
     stopReplay(); closeWalkList(); viewDay = startOfDay(viewDay + 86400000 + 3600000); renderDay();
   });
 
+
+  // ===== 記録のバックアップ（ファイルに保存・ファイルから戻す） =====
+  const KEEP_KEY = 'aruku-keep'; // 前にファイルに保存した日時
+  function keepLastText() {
+    let at = 0;
+    try { at = Number(localStorage.getItem(KEEP_KEY)) || 0; } catch (e) {}
+    const el = document.getElementById('keepLast');
+    el.textContent = at ? '前に保存した日：' + recordDate(at) : walks.length ? 'まだ一度も保存していません' : '';
+  }
+  function fileDay(time) {
+    const d = new Date(time);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  async function exportData() {
+    if (DEMO) { showNote('サンプル表示中は保存できません。'); return; }
+    save();
+    let data = {};
+    try { data = JSON.parse(localStorage.getItem(SAVE_KEY) || '{}'); } catch (e) {}
+    const text = JSON.stringify({ app: 'osanpo-tekuteku', version: 1, savedAt: Date.now(), data });
+    const name = 'osanpo-kiroku-' + fileDay(Date.now()) + '.json';
+    const done = () => { try { localStorage.setItem(KEEP_KEY, String(Date.now())); } catch (e) {} keepLastText(); };
+    // スマホでは共有の画面から「ファイルに保存」や LINE をえらべるようにする
+    try {
+      const file = new File([text], name, { type: 'application/json' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'おさんぽてくてく の記録' });
+        done();
+        return;
+      }
+    } catch (e) {
+      if (e && e.name === 'AbortError') return; // やめたとき
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+    a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    done();
+  }
+  function importData(file) {
+    if (!file) return;
+    if (DEMO) { showNote('サンプル表示中は戻せません。'); return; }
+    if (current) { alert('記録中は戻せません。「歩きおわる」を押してからにしてください。'); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      let box = null;
+      try { box = JSON.parse(reader.result); } catch (e) {}
+      const data = box && box.app === 'osanpo-tekuteku' && box.data;
+      if (!data || !Array.isArray(data.walks)) { alert('このファイルは おさんぽてくてく の記録ではないようです。'); return; }
+      const steps = Math.round(data.walks.reduce((s, w) => s + (w.distance || 0), 0) / STRIDE_M);
+      const msg = recordDate(box.savedAt) + ' に保存した記録（' + data.walks.length + '回の散歩・約' + steps.toLocaleString() + '歩）に戻します。' +
+        (walks.length ? '\nいまこのスマホにある記録は、ファイルの記録に置きかわります。' : '') + '\nよろしいですか？';
+      if (!confirm(msg)) return;
+      data.current = null;
+      try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); localStorage.setItem(KEEP_KEY, String(box.savedAt)); } catch (e) { alert('保存できませんでした。'); return; }
+      try { localStorage.setItem(HOME_TIP_KEY, '1'); } catch (e) {}
+      location.reload();
+    };
+    reader.readAsText(file);
+  }
+  document.getElementById('exportButton').addEventListener('click', exportData);
+  document.getElementById('importButton').addEventListener('click', () => {
+    const input = document.getElementById('importFile');
+    input.value = '';
+    input.click();
+  });
+  document.getElementById('importFile').addEventListener('change', (e) => importData(e.target.files[0]));
+  // ブラウザに「この記録は消さないで」とお願いしておく（できるブラウザだけ）
+  try { if (!DEMO && navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch (e) {}
+
+  // ===== ホーム画面に追加のおすすめ =====
+  const HOME_TIP_KEY = 'aruku-home-tip';
+  function showHomeTip() {
+    if (DEMO) return;
+    try { if (localStorage.getItem(HOME_TIP_KEY)) return; } catch (e) { return; }
+    const ua = navigator.userAgent;
+    const iphone = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+    const phone = iphone || /Android/.test(ua);
+    const standalone = navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+    let text = '';
+    if (standalone && iphone && !walks.length) text = '前に Safari で歩いていた人は、Safari で「💾 ファイルに保存」をして、ここで「ファイルから戻す」を押すと記録を引っこしできます。';
+    else if (!standalone && phone) text = iphone && walks.length
+      ? '📱 ホーム画面に追加すると、記録が消えにくくなります。追加する前に、下の「💾 ファイルに保存」をしておいてください（ホーム画面のアプリには記録が引きつがれないため）。'
+      : '📱 ホーム画面に追加すると、アプリのようにすぐ開けて、記録も消えにくくなります。';
+    if (!text) return;
+    document.getElementById('homeTipText').innerHTML = '';
+    document.getElementById('homeTipText').append(text + ' ');
+    const more = document.createElement('button');
+    more.type = 'button'; more.className = 'tip-more'; more.textContent = 'やり方を見る';
+    more.addEventListener('click', openHelp);
+    document.getElementById('homeTipText').append(more);
+    document.getElementById('homeTip').hidden = false;
+  }
+  document.getElementById('homeTipClose').addEventListener('click', () => {
+    document.getElementById('homeTip').hidden = true;
+    try { localStorage.setItem(HOME_TIP_KEY, '1'); } catch (e) {}
+  });
+
+  // ===== 成長をみんなに見せる（今日の道がのびていく短い動画。作れないスマホでは画像） =====
+  // 送るのは絵と歩数と道の形だけ。地図や住所はのせない
+  const APP_URL = 'https://mario1367.github.io/-sodatsu/';
+  const SHARE_W = 720, SHARE_H = 720;
+  function loadImg(src) {
+    return new Promise((ok) => { const img = new Image(); img.onload = () => ok(img); img.onerror = () => ok(null); img.src = src; });
+  }
+  function shareInfo() {
+    const today = startOfDay(Date.now());
+    const list = walksOfDay(today).concat(current ? [current] : []);
+    const meters = list.reduce((s, w) => s + w.distance, 0);
+    const total = totalSteps();
+    return { list, steps: Math.round(meters / STRIDE_M), total, stage: getStage(total) };
+  }
+  // 今日の道を、動画の枠に収まる点の並びにする
+  function routeLines(list, box) {
+    const segs = list.flatMap(segmentsOf);
+    const pts = segs.flat();
+    if (pts.length < 2) return [];
+    const lat0 = pts[0][0] * Math.PI / 180;
+    const xy = (p) => [p[1] * Math.cos(lat0), -p[0]];
+    const all = pts.map(xy);
+    const minX = Math.min(...all.map((p) => p[0])), maxX = Math.max(...all.map((p) => p[0]));
+    const minY = Math.min(...all.map((p) => p[1])), maxY = Math.max(...all.map((p) => p[1]));
+    const r = Math.min(box.w / Math.max(1e-6, maxX - minX), box.h / Math.max(1e-6, maxY - minY));
+    const ox = box.x + (box.w - (maxX - minX) * r) / 2, oy = box.y + (box.h - (maxY - minY) * r) / 2;
+    return segs.map((seg) => seg.map((p) => { const q = xy(p); return [ox + (q[0] - minX) * r, oy + (q[1] - minY) * r]; }));
+  }
+  // できあがりの1枚（歩数・レベル・世界の絵）
+  function drawShareCard(g, info, pic, walker, alpha) {
+    const W = SHARE_W, H = SHARE_H, k = W / 1080;
+    const font = (size, w) => (w || 700) + ' ' + Math.round(size * k) + 'px "Zen Maru Gothic", "Hiragino Maru Gothic ProN", sans-serif';
+    g.save(); g.globalAlpha = alpha;
+    g.fillStyle = '#f4f7f2'; g.fillRect(0, 0, W, H);
+    const top = 190 * k, ph = 560 * k, left = 60 * k, pw = W - 120 * k;
+    g.save();
+    g.beginPath(); g.roundRect(left, top, pw, ph, 36 * k); g.clip();
+    if (pic) {
+      const r = Math.max(pw / pic.width, ph / pic.height);
+      g.drawImage(pic, left + (pw - pic.width * r) / 2, top + (ph - pic.height * r) / 2, pic.width * r, pic.height * r);
+    } else {
+      const sky = g.createLinearGradient(0, top, 0, top + ph);
+      sky.addColorStop(0, '#d9eef5'); sky.addColorStop(1, '#eef7ea');
+      g.fillStyle = sky; g.fillRect(left, top, pw, ph);
+      g.fillStyle = '#b98a5e'; g.fillRect(left, top + ph - 130 * k, pw, 130 * k);
+      g.fillStyle = '#8e6440'; g.fillRect(left, top + ph - 130 * k, pw, 14 * k);
+      g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+      g.font = Math.round((150 + (info.stage.size || 1) * 120) * k) + 'px sans-serif';
+      g.fillText(info.stage.emoji || '⛩', W / 2, top + ph - 120 * k);
+    }
+    g.restore();
+    if (walker) { const h = 190 * k, w = walker.width * h / walker.height; g.drawImage(walker, W - 90 * k - w, top + ph - h - 10 * k, w, h); }
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = '#24382a'; g.font = font(60); g.fillText('🚶 おさんぽてくてく', W / 2, 80 * k);
+    g.fillStyle = '#62775f'; g.font = font(38, 500); g.fillText(recordDate(Date.now()) + ' の おさんぽ', W / 2, 148 * k);
+    g.fillStyle = '#3f8f4f'; g.font = font(96); g.fillText(info.steps.toLocaleString() + ' 歩', W / 2, top + ph + 100 * k);
+    g.fillStyle = '#24382a'; g.font = font(44); g.fillText('Lv' + info.stage.level + '「' + info.stage.name + '」', W / 2, top + ph + 190 * k);
+    g.fillStyle = '#62775f'; g.font = font(32, 500); g.fillText('これまで ' + info.total.toLocaleString() + ' 歩（めやす）', W / 2, top + ph + 255 * k);
+    g.restore();
+  }
+  // 道がのびていく場面（t: 0〜1）
+  function drawShareRoute(g, info, lines, walker, t) {
+    const W = SHARE_W, H = SHARE_H;
+    g.fillStyle = '#eef5e9'; g.fillRect(0, 0, W, H);
+    g.strokeStyle = '#dde9d6'; g.lineWidth = 1;
+    for (let x = 0; x <= W; x += 40) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); }
+    for (let y = 0; y <= H; y += 40) { g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+    const total = lines.reduce((s, l) => s + l.length - 1, 0);
+    let left = t * total, head = null, dir = 1;
+    g.strokeStyle = '#e53935'; g.lineWidth = 9; g.lineCap = 'round'; g.lineJoin = 'round';
+    for (const l of lines) {
+      if (left <= 0) break;
+      g.beginPath(); g.moveTo(l[0][0], l[0][1]); head = l[0];
+      for (let i = 1; i < l.length && left > 0; i++) {
+        const f = Math.min(1, left);
+        const p = [l[i - 1][0] + (l[i][0] - l[i - 1][0]) * f, l[i - 1][1] + (l[i][1] - l[i - 1][1]) * f];
+        if (l[i][0] !== l[i - 1][0]) dir = l[i][0] > l[i - 1][0] ? 1 : -1;
+        g.lineTo(p[0], p[1]); head = p; left -= 1;
+      }
+      g.stroke();
+    }
+    if (walker && head) {
+      const h = 90, w = walker.width * h / walker.height;
+      g.save(); g.translate(head[0], head[1] - h + 8); if (dir < 0) { g.scale(-1, 1); } g.drawImage(walker, -w / 2, 0, w, h); g.restore();
+    }
+    g.fillStyle = 'rgba(255,255,255,0.88)'; g.beginPath(); g.roundRect(W / 2 - 170, 24, 340, 76, 38); g.fill();
+    g.fillStyle = '#3f8f4f'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = '700 46px "Zen Maru Gothic", "Hiragino Maru Gothic ProN", sans-serif';
+    g.fillText(Math.round(info.steps * t).toLocaleString() + ' 歩', W / 2, 63);
+  }
+  function videoType() {
+    if (!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) return '';
+    for (const type of ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm']) {
+      try { if (MediaRecorder.isTypeSupported(type)) return type; } catch (e) {}
+    }
+    return '';
+  }
+  // 動画を作る（作れないときは null）
+  async function makeShareVideo(info, pic, walker) {
+    const type = videoType();
+    if (!type) return null;
+    const cv = document.createElement('canvas'); cv.width = SHARE_W; cv.height = SHARE_H;
+    const g = cv.getContext('2d');
+    const lines = routeLines(info.list, { x: 70, y: 130, w: SHARE_W - 140, h: SHARE_H - 200 });
+    const ROUTE = lines.length ? 4000 : 0, FADE = 700, END = 2500;
+    const stream = cv.captureStream(30);
+    const rec = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 2500000 });
+    const chunks = [];
+    rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+    const stopped = new Promise((ok) => { rec.onstop = ok; });
+    const draw = (ms) => {
+      if (ms < ROUTE) drawShareRoute(g, info, lines, walker, Math.min(1, ms / (ROUTE - 500)));
+      else {
+        if (lines.length) drawShareRoute(g, info, lines, walker, 1);
+        drawShareCard(g, info, pic, walker, Math.min(1, (ms - ROUTE) / FADE));
+      }
+    };
+    draw(0);
+    rec.start(250);
+    const t0 = performance.now();
+    await new Promise((ok) => {
+      const tick = () => {
+        const ms = performance.now() - t0;
+        draw(ms);
+        if (ms < ROUTE + FADE + END) requestAnimationFrame(tick); else ok();
+      };
+      requestAnimationFrame(tick);
+    });
+    rec.stop();
+    await stopped;
+    stream.getTracks().forEach((tr) => tr.stop());
+    const blob = new Blob(chunks, { type: type.split(';')[0] });
+    if (!blob.size) return null;
+    return new File([blob], 'osanpo-tekuteku.' + (type.startsWith('video/mp4') ? 'mp4' : 'webm'), { type: blob.type });
+  }
+  async function makeShareImage(info, pic, walker) {
+    const cv = document.createElement('canvas'); cv.width = SHARE_W; cv.height = SHARE_H;
+    drawShareCard(cv.getContext('2d'), info, pic, walker, 1);
+    const blob = await new Promise((ok) => cv.toBlob(ok, 'image/png'));
+    return blob && new File([blob], 'osanpo-tekuteku.png', { type: 'image/png' });
+  }
+  // 動画を作るのに数秒かかり、その間に「押した」扱いが切れて送れなくなるので、
+  // できあがったらボタンを「送る」に変えて、もう一度押してもらう
+  let shareReady = null;
+  function shareText(info) {
+    return '今日は ' + info.steps.toLocaleString() + ' 歩 おさんぽしました🚶 わたしの世界は Lv' + info.stage.level + '「' + info.stage.name + '」 #おさんぽてくてく';
+  }
+  async function sendShare(file, text) {
+    try {
+      if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], text: text + '\n' + APP_URL });
+      } else if (navigator.share) {
+        await navigator.share({ text, url: APP_URL });
+      } else {
+        await navigator.clipboard.writeText(text + '\n' + APP_URL);
+        showNote('送る文をコピーしました。LINE などに貼りつけてください。'); setTimeout(() => showNote(''), 4000);
+      }
+      return true;
+    } catch (e) {
+      if (e && e.name === 'AbortError') return true; // やめたとき
+      return false;
+    }
+  }
+  async function shareGrowth() {
+    const btn = document.getElementById('shareButton');
+    if (shareReady) {
+      const ready = shareReady; shareReady = null;
+      btn.textContent = '📤 成長をみんなに見せる';
+      if (!(await sendShare(ready.file, ready.text))) { showNote('うまく送れませんでした。'); setTimeout(() => showNote(''), 4000); }
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = '🎬 動画を作っています…';
+    const info = shareInfo();
+    const [pic, walker] = await Promise.all([info.stage.level >= 12 ? loadImg(picturePath(info.stage.level)) : null, loadImg('walker.png')]);
+    let file = null;
+    try { file = await makeShareVideo(info, pic, walker); } catch (e) { file = null; }
+    if (!file || !(navigator.canShare && navigator.canShare({ files: [file] }))) {
+      try { file = await makeShareImage(info, pic, walker); } catch (e) { file = null; }
+    }
+    btn.disabled = false;
+    shareReady = { file, text: shareText(info) };
+    btn.textContent = file && file.type.startsWith('video') ? '📤 動画ができました！ 押して送る' : '📤 できました！ 押して送る';
+  }
+  document.getElementById('shareButton').addEventListener('click', shareGrowth);
+
   // ===== はじめに =====
   if (DEMO) loadDemo(); else load();
   save();
@@ -2027,6 +2355,8 @@
     beginRecording();
   }
   renderDay();
+  keepLastText();
+  showHomeTip();
   if (current) { showNote('記録の続きから再開しました'); setTimeout(() => showNote(''), 4000); }
   else checkForm(); // しばらく歩いていなかったら、ここで象人間になる
   // 今いる場所を地図の真ん中にする（記録がない日だけ）
