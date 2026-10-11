@@ -329,6 +329,40 @@
     85% { opacity: 1; }
     100% { opacity: 0; transform: translateY(-8px); }
   }
+  /* 種を拾ったときの アップ（2秒ほど。さわれるまま、歩くのはじゃましない） */
+  .seed-zoom {
+    position: absolute; z-index: 790; inset: 0; pointer-events: none; overflow: hidden;
+    background: radial-gradient(circle at 50% 58%, transparent 0 96px, rgba(30, 20, 10, 0.45) 112px);
+    animation: seed-dim 2.6s ease forwards;
+  }
+  .seed-zoom .sz-ring {
+    position: absolute; left: 50%; top: 58%; width: 200px; height: 200px; margin: -100px 0 0 -100px; border-radius: 50%;
+    background: radial-gradient(circle at 50% 40%, #fffbe8, #f4e3b5); border: 4px solid #fff; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
+    animation: seed-ring 2.6s cubic-bezier(.2, 1.4, .4, 1) forwards;
+  }
+  .seed-zoom .sz-ground { position: absolute; left: 20px; right: 20px; bottom: 34px; height: 16px; border-radius: 50%; background: #c9a77a; }
+  .seed-zoom .sz-hero { position: absolute; left: 34px; bottom: 40px; height: 118px; }
+  .seed-zoom .sz-hero.peace { display: none; left: 46px; height: 122px; }
+  .seed-zoom.up .sz-hero.bend { display: none; }
+  .seed-zoom.up .sz-hero.peace { display: block; animation: seed-hop 0.5s ease; }
+  .seed-zoom .sz-seed { position: absolute; left: 118px; bottom: 44px; width: 30px; animation: seed-pop 2.6s ease forwards; filter: drop-shadow(0 0 6px #ffe680); }
+  .seed-zoom .sz-star { position: absolute; font-size: 18px; opacity: 0; animation: seed-star 1.1s ease 0.9s forwards; }
+  .seed-zoom .sz-word {
+    position: absolute; left: 0; right: 0; top: 18px; text-align: center; font-weight: 800; font-size: 1.05rem; color: #c0602a;
+    opacity: 0; animation: seed-word 1.6s ease 0.8s forwards;
+  }
+  @keyframes seed-dim { 0% { opacity: 0; } 12% { opacity: 1; } 82% { opacity: 1; } 100% { opacity: 0; } }
+  @keyframes seed-ring { 0% { transform: scale(0.2); opacity: 0; } 18% { transform: scale(1); opacity: 1; } 82% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.15); opacity: 0; } }
+  @keyframes seed-pop {
+    0%, 30% { transform: translate(0, 0) scale(0.8); }
+    38% { transform: translate(-6px, -8px) scale(1); }
+    55% { transform: translate(14px, -78px) scale(1.5) rotate(-20deg); }
+    70%, 100% { transform: translate(18px, -66px) scale(1.4) rotate(0deg); }
+  }
+  @keyframes seed-hop { 0% { transform: translateY(0); } 40% { transform: translateY(-10px); } 100% { transform: translateY(0); } }
+  @keyframes seed-star { 0% { opacity: 0; transform: scale(0.3); } 40% { opacity: 1; transform: scale(1.2); } 100% { opacity: 0; transform: translateY(-14px) scale(0.8); } }
+  @keyframes seed-word { 0% { opacity: 0; transform: scale(0.6); } 25% { opacity: 1; transform: scale(1.1); } 40%, 100% { opacity: 1; transform: scale(1); } }
+  @media (prefers-reduced-motion: reduce) { .seed-zoom, .seed-zoom * { animation: none !important; } .seed-zoom .sz-star { opacity: 1; } .seed-zoom .sz-word { opacity: 1; } }
   /* 再生中の操作（速さ・とめる・見せる）は、地図の下に1列で並べる */
   .replay-bar {
     position: absolute; z-index: 760; left: 6px; right: 6px; bottom: 30px; display: flex; gap: 4px; align-items: center;
@@ -1236,6 +1270,25 @@
     playChime();
     try { if (navigator.vibrate) navigator.vibrate([80, 60, 80]); } catch (e) {}
   }
+  // 種を拾ったときの アップ：主人公がかがんで種をひろい、ピース（2秒ほどで消える）
+  function showSeedZoom() {
+    const wrap = document.querySelector('.map-wrap');
+    if (!wrap) return;
+    wrap.querySelectorAll('.seed-zoom').forEach((el) => el.remove());
+    const seed = '<svg class="sz-seed" viewBox="0 0 30 36" aria-hidden="true"><path d="M15 2 C26 10 28 26 15 34 C2 26 4 10 15 2z" fill="#b0743c" stroke="#6e4422" stroke-width="1.5"/>' +
+      '<path d="M15 8 C19 14 19 24 15 30" stroke="#e9c48e" stroke-width="2" fill="none" stroke-linecap="round"/></svg>';
+    const stars = [[40, 60, '✨'], [168, 70, '✨'], [120, 92, '⭐'], [172, 128, '✨']].map(([x, y, c], i) =>
+      '<span class="sz-star" style="left:' + x + 'px;top:' + y + 'px;animation-delay:' + (0.9 + i * 0.12) + 's">' + c + '</span>').join('');
+    const el = document.createElement('div');
+    el.className = 'seed-zoom';
+    el.setAttribute('aria-hidden', 'true');
+    el.innerHTML = '<div class="sz-ring"><div class="sz-ground"></div>' +
+      '<img class="sz-hero bend" src="chars/walker_bend.png" alt=""><img class="sz-hero peace" src="chars/walker_peace.png" alt="">' +
+      seed + stars + '<div class="sz-word">ゲット！</div></div>';
+    wrap.appendChild(el);
+    setTimeout(() => el.classList.add('up'), 900);
+    setTimeout(() => el.remove(), 2700);
+  }
   // ピロリン♪ という短い音
   function playChime() {
     try {
@@ -1434,6 +1487,7 @@
       shrine.flowers.push({ char: shrine.flowers.length, seedAt: now, points: 0, bloomAt: null, shrine: sh.name });
       shrine.log.push({ t: now, type: 'seed', shrine: sh.name });
       changed = true;
+      showSeedZoom();
       showToast('⛩ ふしぎな種を 手に入れた！<small>' + sh.name + '</small>');
     }
     if (changed) { save(); renderShrine(); }
