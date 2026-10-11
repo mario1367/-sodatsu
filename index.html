@@ -1272,6 +1272,17 @@
     playChime();
     try { if (navigator.vibrate) navigator.vibrate([80, 60, 80]); } catch (e) {}
   }
+  const SEED_ZOOM_MS = 2700; // 種のアップが出ている長さ（再生と見せる動画では、このあいだ止まる）
+  // 道の再生・見せる動画で、種を手に入れた点の番号（times は点ごとの時刻）
+  function seedSpots(times) {
+    const spots = [];
+    for (const e of shrine.log) {
+      if (e.type !== 'seed') continue;
+      const i = times.findIndex((t) => t >= e.t);
+      if (i > 0 && e.t - times[i - 1] < 600000) spots.push(i); // その散歩の途中で拾った種だけ
+    }
+    return [...new Set(spots)].sort((a, b) => a - b);
+  }
   // 種を拾ったときの アップ：主人公がかがんで種をひろい、ピース（2秒ほどで消える）
   function showSeedZoom() {
     const wrap = document.querySelector('.map-wrap');
@@ -1289,7 +1300,7 @@
       seed + stars + '<div class="sz-word">ゲット！</div></div>';
     wrap.appendChild(el);
     setTimeout(() => el.classList.add('up'), 900);
-    setTimeout(() => el.remove(), 2700);
+    setTimeout(() => el.remove(), SEED_ZOOM_MS);
   }
   // ピロリン♪ という短い音
   function playChime() {
@@ -2129,6 +2140,9 @@
     let last = performance.now(), traveledSoFar = 0;
     let drawn = 1;     // 線に入れ終わった点の数
     let hasTip = false; // 線の先っぽ（点と点の途中）を入れているか
+    // 種を拾った場所では、立ち止まって アップを出す
+    const seeds = durationMs && times ? seedSpots(times) : [];
+    let nextSeed = 0;
     setReplayUI(true);
 
     function frame(now) {
@@ -2137,7 +2151,14 @@
       // 速さボタン（ゆっくり・ふつう・はやい）で、進み方を途中からでも変えられる
       traveledSoFar += (now - last) / durationMs * meters * REPLAY_SPEEDS[replaySpeed];
       last = now;
-      const traveled = durationMs === 0 ? meters : Math.min(meters, traveledSoFar);
+      let traveled = durationMs === 0 ? meters : Math.min(meters, traveledSoFar);
+      while (nextSeed < seeds.length && cum[seeds[nextSeed]] < traveledSoFar - 30) nextSeed++; // とばした分（再生の途中から）は出さない
+      if (nextSeed < seeds.length && cum[seeds[nextSeed]] <= traveled) {
+        traveled = traveledSoFar = cum[seeds[nextSeed]];
+        nextSeed++;
+        walkerRestUntil = now + SEED_ZOOM_MS;
+        showSeedZoom();
+      }
       replayFrac = meters ? traveled / meters : 0; // 「見せる」の動画は、いま再生しているところから切り抜く
       // 通りすぎた点を線に入れる
       while (drawn < total && cum[drawn] <= traveled) {
@@ -2548,7 +2569,27 @@
       return m;
     };
     const moveMs = moveT(ms) || 1;
+    // 種を拾った場所では立ち止まって、アップを出す（そのぶん動画が少し長くなる）
+    const pauses = []; // [止まりはじめる動画の時刻, 止まる前までの時刻]
+    for (const i of seedSpots(times)) {
+      if (cum[i] < startM || cum[i] > startM + clipM) continue;
+      const want = (cum[i] - startM) / clipM * moveMs;
+      let u = 0;
+      while (u < ms && moveT(u) < want) u += 10;
+      pauses.push([u + pauses.length * SEED_ZOOM_MS, u]);
+    }
+    const seedImgs = pauses.length ? await Promise.all(['chars/walker_bend.png', 'chars/walker_peace.png'].map(loadImg)) : null;
     const draw = (g, t) => {
+      let zoom = -1;
+      for (const [at, u] of pauses) {
+        if (t < at) break;
+        if (t < at + SEED_ZOOM_MS) { zoom = t - at; t = u; break; }
+        t -= SEED_ZOOM_MS;
+      }
+      drawRoute(g, t);
+      if (zoom >= 0) drawSeedZoom(g, zoom / SEED_ZOOM_MS, seedImgs, W, H);
+    };
+    const drawRoute = (g, t) => {
       const d = startM + Math.min(clipM, moveT(t) / moveMs * clipM);
       const here = posAt(d), cw = worldPx(here.ll, Z), c = [cw[0] - O[0], cw[1] - O[1]];
       g.setTransform(1, 0, 0, 1, 0, 0);
@@ -2602,7 +2643,66 @@
       g.fillStyle = '#ffffff'; g.font = '700 20px "Zen Maru Gothic", "Hiragino Maru Gothic ProN", sans-serif'; g.textAlign = 'center';
       g.fillText('🚶 おさんぽの国', 115, H - 31);
     };
-    return { ms: ms + 600, draw };
+    return { ms: ms + 600 + pauses.length * SEED_ZOOM_MS, draw };
+  }
+  // 見せる動画の中の、種のアップ（アプリのアップと同じ動き。p は 0〜1）
+  function drawSeedZoom(g, p, imgs, W, H) {
+    const ease = (x) => Math.min(1, Math.max(0, x));
+    const fade = p < 0.12 ? p / 0.12 : p > 0.82 ? (1 - p) / 0.18 : 1;
+    const R = W * 0.27, cx = W / 2, cy = H * 0.55, k = R / 100;
+    g.save(); g.setTransform(1, 0, 0, 1, 0, 0);
+    // まわりを少し暗くする
+    g.globalAlpha = fade;
+    const dim = g.createRadialGradient(cx, cy, R * 0.96, cx, cy, R * 1.12);
+    dim.addColorStop(0, 'rgba(30,20,10,0)'); dim.addColorStop(1, 'rgba(30,20,10,0.45)');
+    g.fillStyle = dim; g.fillRect(0, 0, W, H);
+    // 丸い窓がポンと開く
+    const back = (x) => 1 + 2.70158 * Math.pow(x - 1, 3) + 1.70158 * Math.pow(x - 1, 2); // ちょっと行きすぎて戻る
+    const grow = p < 0.18 ? 0.2 + 0.8 * back(p / 0.18) : p > 0.82 ? 1 + (p - 0.82) / 0.18 * 0.15 : 1;
+    g.translate(cx, cy); g.scale(grow, grow);
+    g.shadowColor = 'rgba(0,0,0,0.3)'; g.shadowBlur = 24 * k; g.shadowOffsetY = 6 * k;
+    g.beginPath(); g.arc(0, 0, R + 4 * k, 0, Math.PI * 2); g.fillStyle = '#fff'; g.fill();
+    g.shadowColor = 'transparent';
+    const bg = g.createRadialGradient(0, -20 * k, 10 * k, 0, 0, R);
+    bg.addColorStop(0, '#fffbe8'); bg.addColorStop(1, '#f4e3b5');
+    g.beginPath(); g.arc(0, 0, R, 0, Math.PI * 2); g.fillStyle = bg; g.fill(); g.clip();
+    g.translate(-100 * k, -100 * k); g.scale(k, k); // ここから先はアプリのアップと同じ 200×200 の大きさで描く
+    g.fillStyle = '#c9a77a'; g.beginPath(); g.ellipse(100, 158, 80, 8, 0, 0, Math.PI * 2); g.fill();
+    const up = p >= 900 / SEED_ZOOM_MS;
+    const hero = imgs && imgs[up ? 1 : 0];
+    if (hero) {
+      const h = up ? 122 : 118, w = hero.width * h / hero.height;
+      const hop = up ? -10 * Math.sin(Math.PI * ease((p - 900 / SEED_ZOOM_MS) * SEED_ZOOM_MS / 500)) : 0;
+      g.drawImage(hero, up ? 46 : 34, 160 - h + hop, w, h);
+    }
+    // 種：地面から とび上がって、主人公の横でキラッ
+    const key = [[0, 0, 0, 0.8, 0], [0.3, 0, 0, 0.8, 0], [0.38, -6, -8, 1, 0], [0.55, 14, -78, 1.5, -20], [0.7, 18, -66, 1.4, 0], [1, 18, -66, 1.4, 0]];
+    let a = key[0], b = key[1];
+    for (let i = 1; i < key.length; i++) { a = key[i - 1]; b = key[i]; if (p <= b[0]) break; }
+    const f = b[0] > a[0] ? ease((p - a[0]) / (b[0] - a[0])) : 1, mix = (j) => a[j] + (b[j] - a[j]) * f;
+    g.save(); g.translate(118 + 15 + mix(1), 156 - 18 + mix(2)); g.rotate(mix(4) * Math.PI / 180); g.scale(mix(3), mix(3));
+    g.shadowColor = '#ffe680'; g.shadowBlur = 6;
+    g.beginPath(); g.moveTo(0, -16); g.bezierCurveTo(11, -8, 13, 8, 0, 16); g.bezierCurveTo(-13, 8, -11, -8, 0, -16);
+    g.fillStyle = '#b0743c'; g.fill(); g.lineWidth = 1.5; g.strokeStyle = '#6e4422'; g.stroke();
+    g.shadowColor = 'transparent';
+    g.beginPath(); g.moveTo(0, -10); g.bezierCurveTo(4, -4, 4, 6, 0, 12); g.lineWidth = 2; g.strokeStyle = '#e9c48e'; g.lineCap = 'round'; g.stroke();
+    g.restore();
+    // キラキラと「ゲット！」
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    [[40, 60, '✨'], [168, 70, '✨'], [120, 92, '⭐'], [172, 128, '✨']].forEach(([x, y, c], i) => {
+      const q = (p * SEED_ZOOM_MS / 1000 - 0.9 - i * 0.12) / 1.1;
+      if (q <= 0 || q >= 1) return;
+      g.save(); g.globalAlpha = fade * (q < 0.4 ? q / 0.4 : (1 - q) / 0.6);
+      g.translate(x + 9, y + 9 - (q > 0.4 ? (q - 0.4) / 0.6 * 14 : 0)); const sc = q < 0.4 ? 0.3 + q / 0.4 * 0.9 : 1.2 - (q - 0.4) / 0.6 * 0.4; g.scale(sc, sc);
+      g.font = '18px sans-serif'; g.fillText(c, 0, 0); g.restore();
+    });
+    const w = (p * SEED_ZOOM_MS / 1000 - 0.8) / 1.6;
+    if (w > 0) {
+      const sc = w < 0.25 ? 0.6 + w / 0.25 * 0.5 : w < 0.4 ? 1.1 - (w - 0.25) / 0.15 * 0.1 : 1;
+      g.save(); g.globalAlpha = fade * Math.min(1, w / 0.25); g.translate(100, 30); g.scale(sc, sc);
+      g.fillStyle = '#c0602a'; g.font = '800 17px "Zen Maru Gothic", "Hiragino Maru Gothic ProN", sans-serif'; g.fillText('ゲット！', 0, 0); g.restore();
+    }
+    g.restore();
   }
   // できあがりの1枚（歩数・レベル・世界の絵）
   function drawShareCard(g, info, pic, walker, alpha) {
