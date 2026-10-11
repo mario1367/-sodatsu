@@ -907,6 +907,15 @@
     return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
   }
   let viewDay = startOfDay(Date.now()); // 表示している日
+  let shownToday = viewDay; // 最後に「今日」だった日
+  // ページを開いたまま日付が変わったら（ホーム画面のアプリは何日も開いたままになる）、
+  // 今日を見ていたときは新しい今日に合わせる。昨日のままだと「歩きはじめる」が消えてしまう
+  function followToday() {
+    const today = startOfDay(Date.now());
+    if (today === shownToday || current) return;
+    if (viewDay === shownToday) viewDay = today;
+    shownToday = today;
+  }
 
   function dayTitle(day) {
     const today = startOfDay(Date.now());
@@ -1105,6 +1114,7 @@
   }
 
   function renderDay() {
+    followToday();
     const list = walksOfDay(viewDay);
     const isToday = viewDay === startOfDay(Date.now());
     const all = current && isToday ? list.concat([current]) : list;
@@ -1991,6 +2001,7 @@
   // （ほかのアプリを使っている間に止まっていても、ここから続きを記録する）
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && current) { keepScreenOn(); watchPosition(); }
+    if (document.visibilityState === 'visible' && !current && !replayTimer && !shareMaking && !shareReady) renderDay();
   });
 
   // ===== 再生（人が線を引きながら歩く） =====
@@ -2005,6 +2016,7 @@
 
   // only に番号を渡すと、その1回の散歩だけを再生する
   function replayDay(only) {
+    followToday();
     let list = walksOfDay(viewDay);
     if (only !== undefined) list = [list[only]];
     if (!list.length || !list[0]) return;
@@ -2187,6 +2199,8 @@
   // 再生ボタン：散歩が1回ならすぐ再生。2回以上なら、時間の一覧を出して選んでもらう
   document.getElementById('replayButton').addEventListener('click', () => {
     if (replayTimer) { stopReplay(); return; }
+    const before = viewDay; followToday();
+    if (viewDay !== before) { renderDay(); return; } // 日付が変わっていたら、まず今日の画面にする
     const listEl = document.getElementById('walkList');
     if (walksOfDay(viewDay).length === 1) { replayDay(); return; }
     listEl.hidden = !listEl.hidden;
