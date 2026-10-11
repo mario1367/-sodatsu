@@ -2685,8 +2685,9 @@
   }
   // 動画を作るのに数秒かかり、その間に「押した」扱いが切れて送れなくなるので、
   // できあがったらボタンを「送る」に変えて、もう一度押してもらう
-  function shareText(info) {
-    return (info.day === startOfDay(Date.now()) ? '今日は ' : recordDate(info.day) + 'は ') + info.steps.toLocaleString() + ' 歩 おさんぽしました🚶 わたしの世界は Lv' + info.stage.level + '「' + info.stage.name + '」\n無料・登録なしのお散歩アプリ「おさんぽの国 ～あるくたびに ちいさななにか…～」はこちら👇 #おさんぽの国';
+  // 送る文はアプリ名とアドレスだけ（まりおさん指定）
+  function shareText() {
+    return 'おさんぽの国';
   }
   async function sendShare(file, text) {
     try {
@@ -2731,7 +2732,7 @@
       try { file = await makeShareImage(info, pic, walker); } catch (e) { file = null; }
     }
     btn.disabled = false; shareMaking = false;
-    shareReady = { file, text: shareText(info) };
+    shareReady = { file, text: shareText() };
     btn.textContent = file && file.type.startsWith('video') ? '📤 送る！' : '📤 送る！';
     updateShareButton();
   }
