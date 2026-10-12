@@ -515,6 +515,10 @@
   .add-steps b { color: var(--go); }
   .add-arrow { text-align: center; font-size: 3rem; line-height: 1; margin-top: 8px; animation: add-bob 1s ease-in-out infinite; }
   @keyframes add-bob { 50% { transform: translateY(8px); } }
+  .qr-box { background: #fff; border-radius: 18px; padding: 14px; margin: 4px auto 0; width: min(78vw, 320px); box-shadow: 0 2px 10px rgba(0,0,0,0.12); }
+  .qr-svg { display: block; width: 100%; height: auto; shape-rendering: crispEdges; }
+  .qr-name { text-align: center; font-size: 1.15rem; font-weight: 700; margin: 14px 0 2px; }
+  .qr-url { text-align: center; font-size: 0.85rem; color: var(--ink-soft); margin: 0 0 12px; word-break: break-all; }
   .keep { border: 2px solid var(--track); border-radius: 18px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
   .keep-head { font-size: 0.95rem; font-weight: 700; }
   .keep p { margin: 0; font-size: 0.85rem; color: var(--ink-soft); line-height: 1.6; }
@@ -617,6 +621,10 @@
       <button class="sub-button add-home" id="addHomeButton" type="button">📱 ホーム画面に追加する</button>
     </div>
     <p class="hint" id="addHomeNote" hidden>「アプリをインストール」と出たら「インストール」を押してください。ホーム画面にアイコンが出ます（お店からアプリを入れるわけではありません）。</p>
+
+    <div class="sub-row">
+      <button class="sub-button add-home" id="qrButton" type="button">🔳 QRコードでアプリを教える</button>
+    </div>
 
     <div class="keep" id="keep">
       <div class="keep-head">💾 記録のバックアップ</div>
@@ -748,6 +756,21 @@
       </section>
     </div>
     <div class="add-arrow" id="addArrow" aria-hidden="true">👇</div>
+  </div>
+</section>
+
+<section class="record-page" id="qrPage" aria-label="QRコード" hidden>
+  <div class="record-inner">
+    <div class="record-top"><h2>🔳 QRコード</h2><button class="round" id="qrClose" type="button" aria-label="とじる">✕</button></div>
+    <div class="qr-box"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 35 35" class="qr-svg"><path fill="#fff" d="M0 0h35v35h-35z"/><path stroke="#222" d="M3 3.5h7m3 0h1m1 0h2m5 0h2m1 0h7m-29 1h1m5 0h1m2 0h2m2 0h4m5 0h1m5 0h1m-29 1h1m1 0h3m1 0h1m1 0h2m2 0h1m1 0h3m5 0h1m1 0h3m1 0h1m-29 1h1m1 0h3m1 0h1m1 0h1m2 0h2m2 0h3m1 0h1m2 0h1m1 0h3m1 0h1m-29 1h1m1 0h3m1 0h1m1 0h1m1 0h2m4 0h1m1 0h3m1 0h1m1 0h3m1 0h1m-29 1h1m5 0h1m1 0h2m5 0h4m3 0h1m5 0h1m-29 1h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7m-21 1h4m6 0h1m1 0h1m-21 1h1m1 0h5m2 0h1m2 0h1m2 0h4m1 0h1m1 0h5m-25 1h1m1 0h2m2 0h3m2 0h1m2 0h9m3 0h1m-26 1h4m1 0h3m1 0h4m1 0h1m2 0h1m1 0h3m-25 1h3m4 0h3m1 0h3m1 0h2m1 0h1m3 0h1m2 0h1m1 0h1m-28 1h1m4 0h2m2 0h3m2 0h4m1 0h1m1 0h1m3 0h2m-27 1h2m6 0h1m3 0h1m3 0h5m1 0h3m3 0h1m-29 1h1m2 0h6m1 0h3m2 0h2m1 0h1m1 0h2m3 0h2m-27 1h1m3 0h2m2 0h1m2 0h2m1 0h2m3 0h2m3 0h1m2 0h1m-28 1h5m1 0h1m4 0h1m3 0h1m1 0h1m3 0h1m1 0h1m1 0h2m-27 1h1m4 0h1m2 0h2m1 0h1m1 0h2m1 0h5m1 0h3m1 0h1m1 0h1m-29 1h1m2 0h1m1 0h2m3 0h1m1 0h4m1 0h1m3 0h1m1 0h2m1 0h1m-27 1h1m1 0h3m3 0h1m1 0h4m1 0h2m2 0h2m1 0h1m1 0h1m2 0h1m-28 1h1m1 0h2m1 0h4m5 0h2m1 0h8m1 0h3m-21 1h3m5 0h3m1 0h1m3 0h5m-29 1h7m5 0h1m2 0h3m1 0h2m1 0h1m1 0h3m-27 1h1m5 0h1m1 0h1m2 0h2m1 0h1m1 0h1m3 0h1m3 0h1m-25 1h1m1 0h3m1 0h1m1 0h1m1 0h1m1 0h1m4 0h2m1 0h5m1 0h1m-27 1h1m1 0h3m1 0h1m1 0h1m3 0h3m1 0h6m3 0h4m-29 1h1m1 0h3m1 0h1m1 0h4m1 0h1m1 0h2m2 0h1m2 0h6m-28 1h1m5 0h1m3 0h1m2 0h1m5 0h2m2 0h3m1 0h1m-28 1h7m1 0h1m3 0h2m1 0h3m3 0h3m2 0h1"/></svg></div>
+    <p class="qr-name">おさんぽの国</p>
+    <p class="qr-url">mario1367.github.io/-sodatsu</p>
+    <div class="help-list">
+      <section class="help-card">
+        <p>友だちのスマホの<b>カメラ</b>をこのQRコードに向けてもらうと、このアプリが開きます。</p>
+        <p class="help-small">記録は人それぞれのスマホに保存されるので、あなたの歩いた道や歩数が相手に見えることはありません。</p>
+      </section>
+    </div>
   </div>
 </section>
 
@@ -2422,6 +2445,8 @@
     const pg = document.getElementById('addPage'); pg.hidden = false; pg.scrollTop = 0;
   }
   document.getElementById('addHomeButton').addEventListener('click', addToHome);
+  document.getElementById('qrButton').addEventListener('click', () => { const pg = document.getElementById('qrPage'); pg.hidden = false; pg.scrollTop = 0; });
+  document.getElementById('qrClose').addEventListener('click', () => { document.getElementById('qrPage').hidden = true; });
   document.getElementById('addClose').addEventListener('click', () => { document.getElementById('addPage').hidden = true; });
 
   function showHomeTip() {
