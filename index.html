@@ -1137,19 +1137,19 @@
   }
   let lastPose = -1;
   setInterval(() => {
-    if (!document.getElementById('walkerEl') || form !== 'normal' || replayPaused) return;
+    if (!document.getElementById('walkerEl') || replayForm !== 'normal' || replayPaused) return;
     let k = Math.floor(Math.random() * (WALKER_POSES.length - 1));
     if (k >= lastPose && lastPose >= 0) k++; // 同じポーズが続かないように
     lastPose = k;
     const pose = WALKER_POSES[k];
     setWalkerPose(pose);
     if (pose.rest) walkerRestUntil = performance.now() + POSE_MS;
-    setTimeout(() => { if (form === 'normal') setWalkerPose(null); }, POSE_MS);
+    setTimeout(() => { if (replayForm === 'normal') setWalkerPose(null); }, POSE_MS);
   }, POSE_EVERY);
-  function walkerIcon() {
-    const look = WALKER_LOOKS[form] || WALKER_LOOKS.normal;
+  function walkerIcon(f) {
+    const look = WALKER_LOOKS[f] || WALKER_LOOKS.normal;
     return L.divIcon({ className: '', iconSize: [look.w, look.h], iconAnchor: [look.w / 2, look.h - 2],
-      html: '<div class="walker-icon' + (form !== 'normal' && WALKER_LOOKS[form] ? ' turn' : '') + '" id="walkerEl" style="width:' + look.w + 'px;height:' + look.h + 'px"><img src="' + look.src + '" alt="' + look.alt + '"></div>' });
+      html: '<div class="walker-icon' + (f !== 'normal' && WALKER_LOOKS[f] ? ' turn' : '') + '" id="walkerEl" style="width:' + look.w + 'px;height:' + look.h + 'px"><img src="' + look.src + '" alt="' + look.alt + '"></div>' });
   }
   let walker = null;                          // 歩く人のマーカー
   const hereIcon = L.divIcon({ className: '', html: '<div class="here-dot"></div>', iconSize: [16, 16], iconAnchor: [8, 8] });
@@ -1940,9 +1940,10 @@
       + (current && startOfDay(current.start) === day ? current.distance : 0);
     return Math.round(meters / STRIDE_M);
   }
-  function judgeForm() {
+  // at を渡すと、その日（の終わり）の すがたを調べる。渡さなければ いまの すがた
+  function judgeForm(at) {
     if (!walks.length) return 'normal';
-    const today = startOfDay(Date.now());
+    const today = startOfDay(at === undefined ? Date.now() : at);
     if (stepsOfDay(today) >= GANESHA_STEPS) return 'ganesha';
     const dayBefore = (day, n) => startOfDay(day - n * 86400000 + 3600000 * 2);
     // 神：今日（または昨日）までの連続達成日数
@@ -1959,6 +1960,10 @@
       if (lazyDays >= LAZY_DAYS) return 'zou';
     }
     return 'normal';
+  }
+  // 再生・見せる動画では、歩いた日の すがたで歩く（今日なら いまの すがた）
+  function formOfDay(day) {
+    return day === startOfDay(Date.now()) ? form : judgeForm(day);
   }
   const FORM_MESSAGES = {
     god: ['なんと！', 'あなたは すごいので 神に なりました！', '（' + GOD_DAYS + '日 つづけて ' + DAILY_GOAL_STEPS.toLocaleString() + '歩 あるいた）'],
@@ -2098,6 +2103,7 @@
   let replayTimer = null;
   let replayFrac = 0; // 再生がどこまで進んだか（0〜1）
   let replayPaused = false; // 地図の下の「⏸ とめる」で一時停止しているか
+  let replayForm = 'normal'; // 再生中の人の すがた（歩いた日の すがた）
   function setReplayPaused(on) {
     replayPaused = on;
     document.getElementById('mapStop').textContent = on ? '▶ つづき' : '⏸ とめる';
@@ -2111,6 +2117,7 @@
     if (only !== undefined) list = [list[only]];
     if (!list.length || !list[0]) return;
     shareList = list; shareDay = viewDay; shareReady = null; sharePicking = false; replayFrac = 0;
+    replayForm = formOfDay(viewDay);
     closeWalkList();
     window.scrollTo({ top: 0, behavior: 'smooth' }); // 地図が見えるところまで上に戻る
     showView('map');
@@ -2135,7 +2142,7 @@
     // 近くに寄って、人を追いかけながら再生する
     map.setView(points[0], REPLAY_ZOOM, { animate: false });
     let line = L.polyline([points[0]], { color: pathColor(), weight: 6, lineCap: 'round' }).addTo(dayLayer);
-    walker = L.marker(points[0], { icon: walkerIcon(), zIndexOffset: 1000 }).addTo(dayLayer);
+    walker = L.marker(points[0], { icon: walkerIcon(replayForm), zIndexOffset: 1000 }).addTo(dayLayer);
     walkerRestUntil = 0;
     // 夜に歩いた道では、黒い服の男が主人公と一緒に歩く
     const otoko = times && times.some(isNight) ? L.marker(points[0], { icon: otokoIcon, zIndexOffset: 995 }).addTo(dayLayer) : null;
@@ -2559,9 +2566,10 @@
     // 地図が読めても動画にできない（よそのサイトの絵あつかい）ときは、地図なしにする
     const probe = document.createElement('canvas').getContext('2d');
     for (const [k, im] of img) { try { probe.drawImage(im, 0, 0); probe.getImageData(0, 0, 1, 1); } catch (e) { img.delete(k); } break; }
-    const look = WALKER_LOOKS[form] || WALKER_LOOKS.normal;
+    const dayForm = formOfDay(info.day);
+    const look = WALKER_LOOKS[dayForm] || WALKER_LOOKS.normal;
     const godsList = shrine.flowers.filter((f) => f.bloomAt).sort((a, b) => b.bloomAt - a.bloomAt);
-    const turns = form !== 'normal' && !!WALKER_LOOKS[form];
+    const turns = dayForm !== 'normal' && !!WALKER_LOOKS[dayForm];
     const [walkerImg, otokoImg, catImg, poseImgs, ...godImgs] = await Promise.all([loadImg(look.src),
       times.some(isNight) ? loadImg(OTOKO.src) : null,
       shrine.points >= CAT_POINTS ? loadImg('chars/cat_sit.png') : null,
@@ -2906,7 +2914,7 @@
     updateShareButton();
     btn.textContent = '🎬 作成中';
     const info = shareInfo();
-    const [pic, walker] = await Promise.all([info.stage.level >= 12 ? loadImg(picturePath(info.stage.level)) : null, loadImg('walker.png')]);
+    const [pic, walker] = await Promise.all([info.stage.level >= 12 ? loadImg(picturePath(info.stage.level)) : null, loadImg((WALKER_LOOKS[formOfDay(info.day)] || WALKER_LOOKS.normal).src)]);
     let file = null;
     try { file = await makeShareVideo(info, pic, walker, lenMs); } catch (e) { file = null; }
     if (!file || !(navigator.canShare && navigator.canShare({ files: [file] }))) {
