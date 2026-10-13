@@ -540,9 +540,22 @@
   .live::before { content: "● "; animation: blink 1.2s infinite; }
   @keyframes blink { 50% { opacity: 0.2; } }
   @media (prefers-reduced-motion: reduce) { .live::before { animation: none; } .goal-fill, .growth-fill { transition: none; } .growth.just .growth-fill, .growth-toast { animation: none; } }
+  /* 開いたときの表紙（1〜2秒で消える。さわっても下の画面に届く） */
+  .cover {
+    position: fixed; inset: 0; z-index: 3000; display: flex; align-items: center; justify-content: center; gap: 14px;
+    background: var(--page); color: var(--ink); font-family: var(--font); pointer-events: none;
+    transition: opacity 0.6s ease;
+  }
+  .cover.out { opacity: 0; }
+  .cover img { width: 46px; height: auto; flex: none; }
+  .cover-text { display: flex; flex-direction: column; gap: 6px; }
+  .cover-text b { font-size: 2rem; letter-spacing: 0.08em; line-height: 1.1; font-family: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", serif; }
+  .cover-text small { font-size: 0.85rem; color: var(--ink-soft); }
+  @media (prefers-reduced-motion: reduce) { .cover { transition: none; } }
 </style>
 </head>
 <body>
+<div class="cover" id="cover" aria-hidden="true"><img src="chars/walker_peace.png" alt=""><div class="cover-text"><b>おさんぽの国</b><small>～歩くたびに　小さなしあわせ～</small></div></div>
 <div class="app">
   <div class="map-wrap">
     <div id="map" aria-label="歩いた道の地図"></div>
@@ -2336,6 +2349,12 @@
   document.getElementById('recordClose').addEventListener('click', () => { document.getElementById('recordPage').hidden = true; });
   // つかいかた
   const openHelp = () => { const pg = document.getElementById('helpPage'); pg.hidden = false; pg.scrollTop = 0; };
+  // 表紙を少し見せてから消す
+  setTimeout(() => {
+    const cover = document.getElementById('cover');
+    cover.classList.add('out');
+    setTimeout(() => cover.remove(), 700);
+  }, 1500);
   document.getElementById('helpButton').addEventListener('click', openHelp);
   document.getElementById('helpLink').addEventListener('click', openHelp);
   document.getElementById('helpClose').addEventListener('click', () => { document.getElementById('helpPage').hidden = true; });
