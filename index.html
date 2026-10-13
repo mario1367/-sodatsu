@@ -542,7 +542,7 @@
   @media (prefers-reduced-motion: reduce) { .live::before { animation: none; } .goal-fill, .growth-fill { transition: none; } .growth.just .growth-fill, .growth-toast { animation: none; } }
   /* 開いたときの表紙（1〜2秒で消える。さわっても下の画面に届く） */
   .cover {
-    position: fixed; inset: 0; z-index: 3000; display: flex; align-items: center; justify-content: center; gap: 14px;
+    position: fixed; inset: 0; z-index: 3000; display: flex; align-items: center; justify-content: center; gap: 2px;
     background: var(--page); color: var(--ink); font-family: var(--font); pointer-events: none;
     transition: opacity 0.6s ease;
   }
