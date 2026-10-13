@@ -1351,7 +1351,7 @@
   const POINT_STAY_MS = 60000;         // ポイントがもらえる時間
   const BLOOM_STEPS = [2, 4, 6];       // 芽・つぼみ・花になるポイント
   const CAT_POINTS = 10;               // 神社ポイントの合計がこれだけたまると、ネコがついてくる
-  const GOD_GAP_PX = 34;               // ついてくる神さまどうしの間（画面の上で）
+  const GOD_GAP_PX = 50;               // ついてくる神さまどうしの間（画面の上で）
   // 花に座る神さま（来る順）。花の色は、その神さまの色に合わせる
   const SHRINE_CHARS = [
     { img: 'biwa',      name: '琵琶をひく女神',     petal: '#f3c6de', center: '#b48ad0', leaf: '#7fae86' },
@@ -2258,8 +2258,8 @@
     if (shareReady) { shareReady = null; document.getElementById('shareButton').textContent = '📤 見せる'; }
     document.querySelectorAll('#speedPick button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.speed === name)));
   }
-  const CAT_GAP_M = 7; // ネコは人の 7m うしろ
-  const OTOKO_GAP_PX = 38; // 黒い服の男は、主人公（ネコがいるときはネコ）のうしろを画面の上でこれだけはなれてついてくる
+  const CAT_GAP_M = 10; // ネコは人の 10m うしろ
+  const OTOKO_GAP_PX = 56; // 黒い服の男は、主人公（ネコがいるときはネコ）のうしろを画面の上でこれだけはなれてついてくる
   // 夜（その場所の時計で 18時〜朝5時）に歩いたところでは、黒い服の男が一緒に歩く
   const NIGHT_FROM = 18, NIGHT_UNTIL = 5;
   const isNight = (t) => { if (!t) return false; const h = new Date(t).getHours(); return h >= NIGHT_FROM || h < NIGHT_UNTIL; };
