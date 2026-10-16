@@ -150,8 +150,8 @@
     align-self: center; padding: 6px 10px; border-radius: 999px; white-space: nowrap;
     font-family: var(--font); font-weight: 700; font-size: 0.75rem; color: var(--ink-soft); text-decoration: none;
   }
-  /* 花だよりを足して横に長くなったので、せまい画面では左に寄せて「？」ボタンと重ならないように */
-  @media (max-width: 440px) { .view-toggle { left: 12px; translate: none; } }
+  /* 花だよりを足して横に長くなったので、せまい画面では「？」ボタンをよけた残りの幅のまん中に置く */
+  @media (max-width: 440px) { .view-toggle { left: calc(50% - 25px); } }
   .view-toggle .view-link:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
   .view-toggle button[aria-pressed="true"] { background: var(--go); color: var(--on-button); }
   .map-note { top: 64px; }
