@@ -146,6 +146,13 @@
     font-family: var(--font); font-weight: 700; font-size: 0.95rem;
     padding: 8px 16px; border-radius: 999px; cursor: pointer; white-space: nowrap;
   }
+  .view-toggle .view-link {
+    align-self: center; padding: 6px 10px; border-radius: 999px; white-space: nowrap;
+    font-family: var(--font); font-weight: 700; font-size: 0.75rem; color: var(--ink-soft); text-decoration: none;
+  }
+  /* 花だよりを足して横に長くなったので、せまい画面では左に寄せて「？」ボタンと重ならないように */
+  @media (max-width: 440px) { .view-toggle { left: 12px; translate: none; } }
+  .view-toggle .view-link:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
   .view-toggle button[aria-pressed="true"] { background: var(--go); color: var(--on-button); }
   .map-note { top: 64px; }
 
@@ -561,6 +568,7 @@
   <div class="map-wrap">
     <div id="map" aria-label="歩いた道の地図"></div>
     <div class="view-toggle" role="group" aria-label="表示の切りかえ">
+      <a class="view-link" href="https://claude.ai/artifact/YKmpynPXQwToPwNmiDFv2r" target="_blank" rel="noopener">🌸 花だより</a>
       <button type="button" id="showMap" aria-pressed="true">🗺 地図</button>
       <button type="button" id="showWorld" aria-pressed="false">🌳 成長の森</button>
     </div>
