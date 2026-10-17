@@ -392,6 +392,7 @@
   .speed-pick button[aria-pressed="true"] { background: var(--go); color: var(--on-button); }
   /* 成長の森を見ている間は、地図の再生ボタンを出さない */
   .map-wrap.world-on .map-stop, .map-wrap.world-on .speed-pick { display: none; }
+  .map-alone[aria-pressed="true"] { background: var(--go); color: var(--on-button); }
   .map-share { background: var(--go); color: var(--on-button); }
   .map-share:disabled { opacity: 0.85; cursor: default; }
   /* 「見せる」を押したときの、動画の長さえらび */
@@ -598,6 +599,7 @@
       <button type="button" data-speed="slow">🐢 ゆっくり</button><button type="button" data-speed="normal">🚶 ふつう</button><button type="button" data-speed="fast">🐇 はやい</button>
     </div>
       <button class="map-stop" id="mapStop" type="button" hidden>⏸ とめる</button>
+      <button class="map-stop map-alone" id="aloneButton" type="button" aria-pressed="false" hidden>👤 ひとりで</button>
       <button class="map-stop map-share" id="shareButton" type="button" hidden>📤 見せる</button>
     </div>
     <div class="share-len" id="shareLen" role="group" aria-label="動画の長さ" hidden>
@@ -702,7 +704,7 @@
       </section>
       <section class="help-card">
         <h3>📅 前の日を見る・道を再生する</h3>
-        <p>日付の横の「‹」「›」で、前の日の記録を見られます。「▶ この日の道を再生」を押すと、歩いた道をもう一度たどれます。地図の下の「⏸ とめる」で一時停止、「▶ つづき」で続きから。すっかりやめるときは「■ 再生をとめる」を押します。</p>
+        <p>日付の横の「‹」「›」で、前の日の記録を見られます。「▶ この日の道を再生」を押すと、歩いた道をもう一度たどれます。地図の下の「⏸ とめる」で一時停止、「▶ つづき」で続きから。神さまやネコがついてくるときは「👤 ひとりで」を押すと、主人公がひとりで歩きます（もう一度押すと元にもどります。「見せる」動画も同じになります）。すっかりやめるときは「■ 再生をとめる」を押します。</p>
       </section>
       <section class="help-card">
         <h3>🌳 成長の森</h3>
@@ -2207,8 +2209,12 @@
     const seeds = durationMs && times ? seedSpots(times) : [];
     let nextSeed = 0;
     setReplayUI(true);
+    // 「ひとりで」を押している間は、ついてくる仲間をかくす（ついてくる仲間がいるときだけボタンを出す）
+    const followers = [otoko, cat, ...gods].filter(Boolean);
+    document.getElementById('aloneButton').hidden = !followers.length;
 
     function frame(now) {
+      followers.forEach((f) => f.setOpacity(replayAlone ? 0 : 1)); // 止めている間に押しても、すぐ切りかわる
       // 一時停止中は、その場で待つ（地図もそのまま）
       if (replayPaused || now < walkerRestUntil) { last = now; replayTimer = requestAnimationFrame(frame); return; }
       // 速さボタン（ゆっくり・ふつう・はやい）で、進み方を途中からでも変えられる
@@ -2291,6 +2297,16 @@
     if (shareReady) { shareReady = null; document.getElementById('shareButton').textContent = '📤 見せる'; }
     document.querySelectorAll('#speedPick button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.speed === name)));
   }
+  // 「👤 ひとりで」：再生と見せる動画で、主人公がひとりで歩く（神さま・黒い服の男・ネコはついてこない）
+  let replayAlone = false;
+  try { replayAlone = localStorage.getItem('aruku-alone') === '1'; } catch (e) {}
+  function setReplayAlone(on) {
+    replayAlone = on;
+    try { localStorage.setItem('aruku-alone', on ? '1' : '0'); } catch (e) {}
+    // 切りかえたら、前に作った動画は使わない
+    if (shareReady) { shareReady = null; document.getElementById('shareButton').textContent = '📤 見せる'; }
+    document.getElementById('aloneButton').setAttribute('aria-pressed', String(on));
+  }
   const CAT_GAP_M = 10; // ネコは人の 10m うしろ
   const OTOKO_GAP_PX = 56; // 黒い服の男は、主人公（ネコがいるときはネコ）のうしろを画面の上でこれだけはなれてついてくる
   // 夜（その場所の時計で 18時〜朝5時）に歩いたところでは、黒い服の男が一緒に歩く
@@ -2320,6 +2336,7 @@
     document.getElementById('mapStop').hidden = !playing;
     updateShareButton();
     document.getElementById('speedPick').hidden = !playing;
+    if (!playing) document.getElementById('aloneButton').hidden = true;
     if (playing) document.getElementById('replayButton').textContent = '■ 再生をとめる';
     else if (!current) renderDay();
   }
@@ -2354,8 +2371,10 @@
   });
   // 地図の下のボタンは一時停止（もう一度押すと続きから）。すっかりやめるのは下の「■ 再生をとめる」
   document.getElementById('mapStop').addEventListener('click', () => setReplayPaused(!replayPaused));
+  document.getElementById('aloneButton').addEventListener('click', () => setReplayAlone(!replayAlone));
   document.getElementById('speedPick').addEventListener('click', (e) => { const b = e.target.closest('button[data-speed]'); if (b) setReplaySpeed(b.dataset.speed); });
   setReplaySpeed(replaySpeed);
+  setReplayAlone(replayAlone);
   // 一覧の散歩を押すと、その散歩だけ再生
   function onWalkPick(event) {
     const item = event.target.closest('li[data-index]');
@@ -2607,11 +2626,11 @@
     for (const [k, im] of img) { try { probe.drawImage(im, 0, 0); probe.getImageData(0, 0, 1, 1); } catch (e) { img.delete(k); } break; }
     const dayForm = formOfDay(info.day);
     const look = WALKER_LOOKS[dayForm] || WALKER_LOOKS.normal;
-    const godsList = shrine.flowers.filter((f) => f.bloomAt).sort((a, b) => b.bloomAt - a.bloomAt);
+    const godsList = replayAlone ? [] : shrine.flowers.filter((f) => f.bloomAt).sort((a, b) => b.bloomAt - a.bloomAt);
     const turns = dayForm !== 'normal' && !!WALKER_LOOKS[dayForm];
     const [walkerImg, otokoImg, catImg, poseImgs, ...godImgs] = await Promise.all([loadImg(look.src),
-      times.some(isNight) ? loadImg(OTOKO.src) : null,
-      shrine.points >= CAT_POINTS ? loadImg('chars/cat_sit.png') : null,
+      !replayAlone && times.some(isNight) ? loadImg(OTOKO.src) : null,
+      !replayAlone && shrine.points >= CAT_POINTS ? loadImg('chars/cat_sit.png') : null,
       turns ? [] : Promise.all(WALKER_POSES.map((p) => loadImg(p.src))),
       ...godsList.map((f) => loadImg('chars/shrine/' + SHRINE_CHARS[f.char].img + '.png'))]);
     // 世界ピクセルは大きすぎて線が描けないことがあるので、最初の点からの位置にする
