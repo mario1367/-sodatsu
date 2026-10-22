@@ -1,4 +1,4 @@
-# 月に1回、日本じゅうの神社の場所を地図（OpenStreetMap）から集めなおして shrines/ に置き、公開しなおす
+# 月に1回、日本じゅうの神社の場所を地図（OpenStreetMap のデータ）から集めなおして shrines/ に置き、公開しなおす
 name: Update shrine list
 
 on:
@@ -20,13 +20,23 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: node tools/shrines.mjs
+      - name: Collect shrines
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q osmium-tool
+          curl -sSfL -o japan.osm.pbf https://download.geofabrik.de/asia/japan-latest.osm.pbf
+          # 神社かもしれないものだけに絞る（くわしい条件は tools/shrines.mjs）
+          osmium tags-filter japan.osm.pbf nwr/religion=shinto nwr/building=shrine \
+            'nwr/name=*神社' 'nwr/name=*神宮' 'nwr/name=*大社' 'nwr/name=*稲荷' 'nwr/name=*八幡' 'nwr/name=*天満宮' \
+            'nwr/name=*天神' 'nwr/name=*明神' 'nwr/name=*権現' 'nwr/name=*神明' 'nwr/name=*宮' 'nwr/name=*社' -o cand.osm.pbf
+          osmium export cand.osm.pbf -a type,id -f geojsonseq --format-option print_record_separator=false -o cand.geojsonseq
+          node tools/shrines.mjs cand.geojsonseq
+          rm -f japan.osm.pbf cand.osm.pbf cand.geojsonseq
       - name: Commit
         run: |
           git config user.name 'github-actions[bot]'
