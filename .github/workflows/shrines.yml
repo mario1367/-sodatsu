@@ -1,0 +1,51 @@
+# 月に1回、日本じゅうの神社の場所を地図（OpenStreetMap のデータ）から集めなおして shrines/ に置き、公開しなおす
+name: Update shrine list
+
+on:
+  schedule:
+    - cron: '0 18 1 * *'
+  workflow_dispatch:
+  push:
+    branches: ['claude/**']
+    paths: ['tools/shrines.mjs', '.github/workflows/shrines.yml']
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: shrines
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Collect shrines
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q osmium-tool
+          curl -sSfL -o japan.osm.pbf https://download.geofabrik.de/asia/japan-latest.osm.pbf
+          # 神社かもしれないものだけに絞る（くわしい条件は tools/shrines.mjs）
+          osmium tags-filter japan.osm.pbf nwr/religion=shinto nwr/building=shrine \
+            'nwr/name=*神社' 'nwr/name=*神宮' 'nwr/name=*大社' 'nwr/name=*稲荷' 'nwr/name=*八幡' 'nwr/name=*天満宮' \
+            'nwr/name=*天神' 'nwr/name=*明神' 'nwr/name=*権現' 'nwr/name=*神明' 'nwr/name=*宮' 'nwr/name=*社' -o cand.osm.pbf
+          osmium export cand.osm.pbf -a type,id -f geojsonseq --format-option print_record_separator=false -o cand.geojsonseq
+          node tools/shrines.mjs cand.geojsonseq
+          rm -f japan.osm.pbf cand.osm.pbf cand.geojsonseq
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898732+github-actions[bot]@users.noreply.github.com'
+          git add shrines
+          if git diff --cached --quiet; then echo 'no change'; exit 0; fi
+          git commit -m '神社の一覧を更新'
+          git push
+          # GITHUB_TOKEN の push では公開が動かないので、main のときは公開を呼ぶ
+          if [ "$GITHUB_REF" = 'refs/heads/main' ]; then gh workflow run pages.yml --ref main; fi
+        env:
+          GH_TOKEN: ${{ github.token }}
