@@ -1415,18 +1415,74 @@
   const FIRST_GODS = 11; // Lv10 までの「はじめの神さま」の数。これより後は、神々の野で集める新しい神さま
   const isNewGod = (f) => f.char >= FIRST_GODS;
   let shrineList = [];   // 近くの神社 [{ id, name, lat, lng, box }]
-  let shrineArea = null; // 神社を調べた場所と時刻
+  let shrineTiles = {};  // アプリに入れてある神社の一覧（1度ごとのマス）{ '36_138': { u: 集めた日, t: 読んだ時刻, list } }
+  let shrineIndex = null; // shrines/index.json（どのマスに神社があるか）。null はまだ、false は読めなかった
+  let shrineIndexAt = 0;
+  const tileLoading = {};
+  let shrineLive = [];   // 一覧が使えないときに、地図（Overpass）へ直接聞いた神社
+  let shrineArea = null; // Overpass に聞いた場所と時刻
   let shrineLoading = 0;
+  let shrineFails = 0;
   let shrineStay = null; // いま いる神社 { id, name, since, seen, seeded }
   let shrineTimer = null;
   let lastFix = null;
-  const SHRINE_KEY = 'aruku-shrines-2'; // 調べ方を広げたので、前に覚えた神社の一覧は使わず調べ直す
-  try { const c = JSON.parse(localStorage.getItem(SHRINE_KEY) || 'null'); if (c) { shrineList = c.list; shrineArea = c.area; } } catch (e) {}
+  const SHRINE_KEY = 'aruku-shrines-3'; // 神社の一覧をアプリに入れたので、前に覚えたものは使わず読み直す
+  try {
+    const c = JSON.parse(localStorage.getItem(SHRINE_KEY) || 'null');
+    if (c) { shrineTiles = c.tiles || {}; shrineLive = c.live || []; shrineArea = c.area || null; }
+    localStorage.removeItem('aruku-shrines-2');
+  } catch (e) {}
+  function rebuildShrines() {
+    const seen = new Set();
+    shrineList = [];
+    for (const sh of [...Object.values(shrineTiles).flatMap((t) => t.list), ...shrineLive]) {
+      if (seen.has(sh.id) || !isFinite(sh.lat) || !isFinite(sh.lng)) continue;
+      seen.add(sh.id);
+      shrineList.push(sh);
+    }
+    try { localStorage.setItem(SHRINE_KEY, JSON.stringify({ tiles: shrineTiles, live: shrineLive, area: shrineArea })); } catch (e) {}
+    drawShrines();
+  }
 
-  // 近くの神社を地図（OpenStreetMap）から調べる。前に調べた場所から 800m 以上はなれたら調べ直す
+  // 近くの神社を読む。ふだんはアプリに入れてある一覧（shrines/、月に1回 地図から集めなおす）を使い、
+  // それが読めないときや日本の外では、地図（OpenStreetMap の Overpass）へ直接聞く
   function loadShrines(at) {
     if (!at) at = lastFix;
-    if (!at || Date.now() - shrineLoading < 120000) return;
+    if (!at) return;
+    const now = Date.now();
+    if (shrineIndex === null || (shrineIndex === false && now - shrineIndexAt > 600000)) {
+      if (now - shrineIndexAt < 20000) return;
+      shrineIndexAt = now;
+      fetch('shrines/index.json', { cache: 'no-cache' }).then((r) => { if (!r.ok) throw r; return r.json(); })
+        .then((j) => { shrineIndex = { updated: j.updated, tiles: new Set(j.tiles) }; loadShrines(at); })
+        .catch(() => { shrineIndex = false; loadShrines(at); });
+      return;
+    }
+    const inJapan = at[0] >= 24 && at[0] < 46 && at[1] >= 122 && at[1] < 146;
+    if (!shrineIndex || !inJapan) { loadShrinesLive(at); return; }
+    // いる場所から1.5kmくらいの範囲にかかるマスを全部読む
+    const keys = new Set();
+    for (const a of [-0.015, 0.015]) for (const o of [-0.02, 0.02]) keys.add(Math.floor(at[0] + a) + '_' + Math.floor(at[1] + o));
+    let changed = false;
+    for (const k of keys) {
+      if (shrineTiles[k] && shrineTiles[k].u === shrineIndex.updated) continue;
+      if (!shrineIndex.tiles.has(k)) { shrineTiles[k] = { u: shrineIndex.updated, t: now, list: [] }; changed = true; continue; }
+      if (now - (tileLoading[k] || 0) < 60000) continue;
+      tileLoading[k] = now;
+      fetch('shrines/' + k + '.json?' + shrineIndex.updated).then((r) => { if (!r.ok) throw r; return r.json(); }).then((rows) => {
+        shrineTiles[k] = { u: shrineIndex.updated, t: Date.now(), list: rows.map(([id, name, lat, lng, box]) => ({ id, name: name || '名前のない神社', lat, lng, box: box || null })) };
+        delete tileLoading[k];
+        // 覚えておくマスは近くの9つまで
+        const old = Object.keys(shrineTiles).filter((x) => !keys.has(x)).sort((x, y) => shrineTiles[x].t - shrineTiles[y].t);
+        while (Object.keys(shrineTiles).length > 9 && old.length) delete shrineTiles[old.shift()];
+        rebuildShrines();
+      }).catch(() => {});
+    }
+    if (changed) rebuildShrines();
+  }
+  function loadShrinesLive(at) {
+    // うまくいかないときは 2分→4分→…→30分と間をあける（何度も聞くと地図のサーバーに断られるようになるため）
+    if (Date.now() - shrineLoading < Math.min(30, 2 * 2 ** shrineFails) * 60000) return;
     if (shrineArea && distanceM(shrineArea, at) < 800 && Date.now() - shrineArea[2] < 3 * 86400000) return;
     shrineLoading = Date.now();
     const around = '(around:1500,' + at[0].toFixed(5) + ',' + at[1].toFixed(5) + ')';
@@ -1437,22 +1493,23 @@
       ';nwr["building"="shrine"]' + around +
       ';nwr["name"~"神社|神宮|大社|稲荷|八幡|天満宮|天神|明神|権現|神明|宮$|社$"]["amenity"="place_of_worship"]["religion"!~"buddhist|christian"]' + around +
       ';nwr["name"~"神社|神宮|大社|稲荷社|八幡宮|天満宮"]["building"]' + around + ';);out bb tags;';
-    const urls = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
+    const urls = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
     const tryUrl = (i) => {
-      if (i >= urls.length) { shrineLoading = Date.now() - 90000; return; } // どこもだめなら30秒後にもう一度
+      if (i >= urls.length) { shrineFails++; return; }
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 35000);
       fetch(urls[i] + '?data=' + encodeURIComponent(q), { signal: ctrl.signal }).then((r) => { clearTimeout(timer); if (!r.ok) throw r; return r.json(); }).then((json) => {
-        shrineList = json.elements.map((e) => {
-          const b = e.bounds;
+        // こみあっていると、空っぽの答えに「エラー」と書いて返してくる。それは覚えない
+        if (json.remark && /error/i.test(json.remark)) throw json;
+        shrineLive = json.elements.map((e) => {
+          const b = e.bounds, c = e.center;
           return { id: e.type[0] + e.id, name: (e.tags && e.tags.name) || '名前のない神社',
-            lat: b ? (b.minlat + b.maxlat) / 2 : e.lat, lng: b ? (b.minlon + b.maxlon) / 2 : e.lon,
-            box: b ? [b.minlat, b.minlon, b.maxlat, b.maxlon] : null };
+            lat: b ? (b.minlat + b.maxlat) / 2 : c ? c.lat : e.lat, lng: b ? (b.minlon + b.maxlon) / 2 : c ? c.lon : e.lon,
+            box: b && e.type !== 'node' ? [b.minlat, b.minlon, b.maxlat, b.maxlon] : null };
         });
         shrineArea = [at[0], at[1], Date.now()];
-        shrineLoading = 0;
-        try { localStorage.setItem(SHRINE_KEY, JSON.stringify({ list: shrineList, area: shrineArea })); } catch (e) {}
-        drawShrines();
+        shrineFails = 0;
+        rebuildShrines();
       }).catch(() => { clearTimeout(timer); tryUrl(i + 1); });
     };
     tryUrl(0);
@@ -1472,7 +1529,7 @@
         .bindTooltip(sh.name).addTo(shrineLayer);
     }
   }
-  drawShrines();
+  rebuildShrines();
   // いちばん近い神社と、「神社にいる」範囲までの残りの距離
   function closestShrine(lat, lng, acc) {
     let best = null, bestD = Infinity;
